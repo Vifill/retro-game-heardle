@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retro Game Heardle</title>
+<style>
+  :root {
+    --bg: #14121f; --panel: #1f1c30; --line: #36314f; --text: #ece9f7;
+    --muted: #9a94b8; --accent: #7cf2a4; --warn: #ff7a8a; --skip: #f5c96a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; justify-content: center;
+  }
+  main { width: 100%; max-width: 480px; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .5px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .stats { display: flex; gap: 14px; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .stats b { color: var(--text); }
+
+  .attempts { display: grid; gap: 6px; margin-bottom: 16px; }
+  .attempt {
+    height: 38px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 0 12px; display: flex; align-items: center; font-size: 14px;
+    color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+  .attempt.wrong { color: var(--warn); border-color: #5a2c3a; }
+  .attempt.skipped { color: var(--skip); border-color: #5a4a2c; }
+  .attempt.right { color: var(--accent); border-color: #2c5a3e; }
+
+  .bar { position: relative; height: 10px; background: var(--panel); border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
+  .bar .unlocked { position: absolute; inset: 0 auto 0 0; background: #3a3456; }
+  .bar .progress { position: absolute; inset: 0 auto 0 0; background: var(--accent); width: 0; }
+  .bar .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--bg); }
+  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
+  .controls { display: flex; gap: 8px; margin-bottom: 14px; }
+  button {
+    font: inherit; border: 0; border-radius: 8px; padding: 11px 14px; cursor: pointer;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); color: #10201a; border-color: var(--accent); font-weight: 600; }
+  #play { flex: 1; }
+
+  .guess { position: relative; display: flex; gap: 8px; }
+  .guess input {
+    flex: 1; font: inherit; padding: 11px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text); min-width: 0;
+  }
+  .guess input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .suggestions {
+    position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 4px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    max-height: 240px; overflow-y: auto; display: none; z-index: 5;
+  }
+  .suggestions div { padding: 9px 12px; cursor: pointer; font-size: 14px; }
+  .suggestions div.active, .suggestions div:hover { background: #2c2845; }
+
+  .result {
+    display: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px; margin-top: 16px; background: var(--panel);
+  }
+  .result h2 { margin: 0 0 4px; font-size: 18px; }
+  .result .meta { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+  .result.win h2 { color: var(--accent); }
+  .result.lose h2 { color: var(--warn); }
+  .result .row { display: flex; gap: 8px; }
+  .result .row button { flex: 1; }
+
+  .note { color: var(--muted); font-size: 12px; margin-top: 18px; }
+  /* The YouTube player has to exist to play audio, but nobody needs to see it. */
+  #player-wrap { position: fixed; left: -9999px; top: 0; width: 200px; height: 200px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Retro Game Heardle</h1>
+  <div class="sub">Guess the game from its music.</div>
+  <div class="stats">
+    <span>Played <b id="s-played">0</b></span>
+    <span>Won <b id="s-won">0</b></span>
+    <span>Streak <b id="s-streak">0</b></span>
+    <span>Best <b id="s-best">0</b></span>
+  </div>
+
+  <div class="attempts" id="attempts"></div>
+
+  <div class="bar" id="bar"><div class="unlocked" id="unlocked"></div><div class="progress" id="progress"></div></div>
+  <div class="times"><span id="t-now">0:00</span><span id="t-max">0:16</span></div>
+
+  <div class="controls">
+    <button id="play" class="primary" disabled>Loading…</button>
+    <button id="skip" disabled>Skip (+1s)</button>
+    <button id="new">New song</button>
+  </div>
+
+  <div class="guess">
+    <div class="suggestions" id="suggestions"></div>
+    <input id="input" placeholder="Type a game…" autocomplete="off" disabled>
+    <button id="submit" disabled>Guess</button>
+  </div>
+
+  <div class="result" id="result">
+    <h2 id="r-title"></h2>
+    <div class="meta" id="r-meta"></div>
+    <div class="row">
+      <button id="r-listen">Play full song</button>
+      <button id="r-next" class="primary">Next song</button>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div id="player-wrap"><div id="player"></div></div>
+</main>
+
+<script src="songs.js"></script>
+<script>
+const STAGES = [1, 2, 4, 7, 11, 16];
+const MAX = STAGES[STAGES.length - 1];
+const RECENT_KEEP = 40;
+
+const $ = id => document.getElementById(id);
+const games = [...new Set(SONGS.map(s => s.game))].sort((a, b) => a.localeCompare(b));
+
+function load(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+}
+function save(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+let stats = load('rgh-stats', { played: 0, won: 0, streak: 0, best: 0 });
+let recent = load('rgh-recent', []);
+let broken = new Set(load('rgh-broken', []));
+
+let player, ready = false;
+let song = null, stage = 0, attempts = [], over = false;
+let stopTimer = null, tickTimer = null, fullListen = false;
+
+function renderStats() {
+  $('s-played').textContent = stats.played;
+  $('s-won').textContent = stats.won;
+  $('s-streak').textContent = stats.streak;
+  $('s-best').textContent = stats.best;
+}
+
+function renderBar() {
+  const bar = $('bar');
+  bar.querySelectorAll('.tick').forEach(t => t.remove());
+  for (const s of STAGES.slice(0, -1)) {
+    const t = document.createElement('div');
+    t.className = 'tick';
+    t.style.left = (s / MAX * 100) + '%';
+    bar.appendChild(t);
+  }
+  $('unlocked').style.width = (STAGES[stage] / MAX * 100) + '%';
+}
+
+function renderAttempts() {
+  const box = $('attempts');
+  box.innerHTML = '';
+  for (let i = 0; i < STAGES.length; i++) {
+    const a = attempts[i];
+    const div = document.createElement('div');
+    div.className = 'attempt' + (a ? ' ' + a.kind : '');
+    div.textContent = a ? (a.kind === 'skipped' ? 'Skipped' : a.text) : '';
+    box.appendChild(div);
+  }
+}
+
+function fmt(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+
+function setControls() {
+  const canPlay = ready && song;
+  $('play').disabled = !canPlay;
+  $('play').textContent = canPlay ? `Play ${STAGES[stage]}s` : 'Loading…';
+  $('skip').disabled = !canPlay || over || stage >= STAGES.length - 1;
+  const nextGain = STAGES[stage + 1] - STAGES[stage];
+  $('skip').textContent = stage < STAGES.length - 1 ? `Skip (+${nextGain}s)` : 'Skip';
+  $('input').disabled = !canPlay || over;
+  $('submit').disabled = !canPlay || over;
+}
+
+function pickSong() {
+  let pool = SONGS.filter(s => !broken.has(s.videoId));
+  if (!pool.length) { broken.clear(); save('rgh-broken', []); pool = SONGS; }
+  let fresh = pool.filter(s => !recent.includes(s.videoId));
+  if (!fresh.length) { recent = []; fresh = pool; }
+  return fresh[Math.floor(Math.random() * fresh.length)];
+}
+
+function newRound() {
+  stopPlayback();
+  song = pickSong();
+  stage = 0; attempts = []; over = false; fullListen = false;
+  recent.push(song.videoId);
+  recent = recent.slice(-RECENT_KEEP);
+  save('rgh-recent', recent);
+  $('result').style.display = 'none';
+  $('input').value = '';
+  $('note').textContent = '';
+  renderAttempts(); renderBar(); setControls();
+  $('progress').style.width = '0';
+  $('t-now').textContent = '0:00';
+  if (ready) player.cueVideoById({ videoId: song.videoId, startSeconds: song.start });
+}
+
+function stopPlayback() {
+  clearTimeout(stopTimer); clearInterval(tickTimer);
+  if (ready && player.pauseVideo) player.pauseVideo();
+}
+
+function play() {
+  if (!ready || !song) return;
+  stopPlayback();
+  fullListen = false;
+  const len = over ? MAX : STAGES[stage];
+  player.seekTo(song.start, true);
+  player.playVideo();
+  // Count from when the audio actually starts, not from the click, so buffering
+  // doesn't eat into the clip.
+  let started = null;
+  tickTimer = setInterval(() => {
+    const t = player.getCurrentTime() - song.start;
+    if (player.getPlayerState() === YT.PlayerState.PLAYING && started === null) {
+      started = true;
+      stopTimer = setTimeout(() => { stopPlayback(); }, len * 1000);
+    }
+    const shown = Math.min(Math.max(t, 0), len);
+    $('progress').style.width = (shown / MAX * 100) + '%';
+    $('t-now').textContent = fmt(shown);
+    if (t >= len) stopPlayback();
+  }, 50);
+}
+
+function advance(entry) {
+  attempts.push(entry);
+  if (stage < STAGES.length - 1 && attempts.length < STAGES.length) {
+    stage++;
+    renderAttempts(); renderBar(); setControls();
+  } else {
+    renderAttempts();
+    finish(false);
+  }
+}
+
+function guess(text) {
+  if (over || !text.trim()) return;
+  const match = games.find(g => g.toLowerCase() === text.trim().toLowerCase());
+  if (!match) { $('note').textContent = 'Pick a game from the list.'; return; }
+  $('note').textContent = '';
+  $('input').value = '';
+  hideSuggestions();
+  if (match === song.game) {
+    attempts.push({ kind: 'right', text: match });
+    renderAttempts();
+    finish(true);
+  } else {
+    advance({ kind: 'wrong', text: match });
+  }
+}
+
+function finish(won) {
+  over = true;
+  stats.played++;
+  if (won) { stats.won++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
+  else stats.streak = 0;
+  save('rgh-stats', stats); renderStats();
+  stage = STAGES.length - 1; renderBar(); setControls();
+  const r = $('result');
+  r.className = 'result ' + (won ? 'win' : 'lose');
+  $('r-title').textContent = song.game;
+  $('r-meta').textContent = `${song.track} · ${song.platform} · ${song.year}` +
+    (won ? ` · got it in ${attempts.length}` : '');
+  r.style.display = 'block';
+}
+
+function giveUp() {
+  // "New song" mid-round counts as a loss so the streak means something.
+  if (song && !over && attempts.length) { stats.played++; stats.streak = 0; save('rgh-stats', stats); renderStats(); }
+  newRound();
+}
+
+// Autocomplete
+let active = -1;
+function showSuggestions() {
+  const q = $('input').value.trim().toLowerCase();
+  const box = $('suggestions');
+  if (!q) { hideSuggestions(); return; }
+  const hits = games.filter(g => g.toLowerCase().includes(q)).slice(0, 8);
+  box.innerHTML = '';
+  hits.forEach((g, i) => {
+    const d = document.createElement('div');
+    d.textContent = g;
+    d.onmousedown = e => { e.preventDefault(); guess(g); };
+    box.appendChild(d);
+  });
+  active = -1;
+  box.style.display = hits.length ? 'block' : 'none';
+}
+function hideSuggestions() { $('suggestions').style.display = 'none'; active = -1; }
+function moveActive(dir) {
+  const items = [...$('suggestions').children];
+  if (!items.length) return;
+  active = (active + dir + items.length) % items.length;
+  items.forEach((el, i) => el.classList.toggle('active', i === active));
+  items[active].scrollIntoView({ block: 'nearest' });
+}
+
+$('input').addEventListener('input', showSuggestions);
+$('input').addEventListener('blur', () => setTimeout(hideSuggestions, 100));
+$('input').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+  else if (e.key === 'Enter') {
+    const items = [...$('suggestions').children];
+    if (active >= 0 && items[active]) guess(items[active].textContent);
+    else if (items.length === 1) guess(items[0].textContent);
+    else guess($('input').value);
+  } else if (e.key === 'Escape') hideSuggestions();
+});
+$('submit').onclick = () => {
+  const items = [...$('suggestions').children];
+  guess(items.length === 1 && $('suggestions').style.display !== 'none' ? items[0].textContent : $('input').value);
+};
+$('play').onclick = play;
+$('skip').onclick = () => advance({ kind: 'skipped' });
+$('new').onclick = giveUp;
+$('r-next').onclick = newRound;
+$('r-listen').onclick = () => {
+  stopPlayback();
+  fullListen = true;
+  player.seekTo(song.start, true);
+  player.playVideo();
+};
+
+// YouTube player
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('player', {
+    width: 200, height: 200,
+    playerVars: { controls: 0, disablekb: 1, playsinline: 1, rel: 0 },
+    events: {
+      onReady: () => {
+        ready = true;
+        if (song) player.cueVideoById({ videoId: song.videoId, startSeconds: song.start });
+        setControls();
+      },
+      onError: e => {
+        // Removed, private, or not embeddable: remember it and move on.
+        console.warn('Skipping unplayable video', song && song.videoId, e.data);
+        if (song) { broken.add(song.videoId); save('rgh-broken', [...broken]); }
+        $('note').textContent = `Skipped a song that wouldn't play (${song ? song.game : ''}).`;
+        const msg = $('note').textContent;
+        newRound();
+        $('note').textContent = msg;
+      }
+    }
+  });
+}
+
+renderStats();
+newRound();
+if (location.protocol === 'file:') {
+  $('note').textContent = 'YouTube may refuse to play when this file is opened directly. Serve it over http (see README).';
+}
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
