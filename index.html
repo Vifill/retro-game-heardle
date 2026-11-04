@@ -419,7 +419,11 @@ function pickSong() {
   if (!pool.length) { broken.clear(); save('rgh-broken', []); pool = SONGS; }
   let fresh = pool.filter(s => !recent.includes(s.videoId));
   if (!fresh.length) { recent = []; fresh = pool; }
-  return fresh[Math.floor(Math.random() * fresh.length)];
+  // Pick a game first, then one of its songs, so games with more tracks don't come up more often.
+  const gameList = [...new Set(fresh.map(s => s.game))];
+  const g = gameList[Math.floor(Math.random() * gameList.length)];
+  const songs = fresh.filter(s => s.game === g);
+  return songs[Math.floor(Math.random() * songs.length)];
 }
 
 function newRound() {

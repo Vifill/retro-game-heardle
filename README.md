@@ -13,7 +13,7 @@ Box art is looked up on Wikipedia when the page runs.
 ## Files
 - `index.html` – the whole game (no build step, no server code)
 - `games.js` – clue data per game (genre, studio, series)
-- `songs.js` – the track list (125 games). Each line is one song:
+- `songs.js` – the track list (128 games, 268 songs). Each line is one song:
   `{"game": "...", "platform": "...", "year": 2001, "track": "...", "videoId": "<YouTube id>", "start": 0}`
   `start` is the second in the video where the clip begins (use it to skip a silent intro).
 
