@@ -58,6 +58,7 @@
   .bar .progress { position: absolute; inset: 0 auto 0 0; background: var(--accent); width: 0; }
   .bar .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--bg); }
   .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .times .silent { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
 
   .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
   button {
@@ -159,7 +160,7 @@
   <div class="attempts" id="attempts"></div>
 
   <div class="bar" id="bar"><div class="unlocked" id="unlocked"></div><div class="progress" id="progress"></div></div>
-  <div class="times"><span id="t-now">0:00</span><span id="t-max">0:22</span></div>
+  <div class="times"><span id="t-now">0:00</span><button class="silent" id="silent">Silent? Skip ahead</button><span id="t-max">0:22</span></div>
 
   <div class="controls">
     <button id="play" class="primary" disabled>Loading…</button>
@@ -198,6 +199,11 @@
 <script>
 const STAGES = [2, 4, 7, 11, 16, 22];
 const MAX = STAGES[STAGES.length - 1];
+// Many uploads open with a beat of silence, so songs without a set start skip the first second.
+const LEAD_IN = 1;
+// Per-song extra skip, added when the player taps "Silent? Skip ahead".
+let offsets = load('rgh-offsets', {});
+function startOf(s) { return (s.start || LEAD_IN) + (offsets[s.videoId] || 0); }
 const RECENT_KEEP = 40;
 
 const $ = id => document.getElementById(id);
@@ -430,7 +436,7 @@ function newRound() {
   getCover(song.game);
   $('progress').style.width = '0';
   $('t-now').textContent = '0:00';
-  if (ready) player.cueVideoById({ videoId: song.videoId, startSeconds: song.start });
+  if (ready) player.cueVideoById({ videoId: song.videoId, startSeconds: startOf(song) });
 }
 
 function stopPlayback() {
@@ -443,16 +449,19 @@ function play() {
   stopPlayback();
   fullListen = false;
   const len = over ? MAX : STAGES[stage];
-  player.seekTo(song.start, true);
+  const start = startOf(song);
+  player.seekTo(start, true);
   player.playVideo();
   // Stop by the video's own position rather than a wall-clock timer, so buffering
   // doesn't eat into the clip. Right after seekTo the player can still report the
   // old position, so ignore it until we've seen the seek land near the start.
   let seeked = false;
   tickTimer = setInterval(() => {
-    const t = player.getCurrentTime() - song.start;
+    // Only count while the video is actually playing (state 1), never while it buffers.
+    if (player.getPlayerState() !== 1) return;
+    const t = player.getCurrentTime() - start;
     if (!seeked) {
-      if (t < 0.5) seeked = true;
+      if (t > -0.5 && t < 0.5) seeked = true;
       else return;
     }
     const shown = Math.min(Math.max(t, 0), len);
@@ -514,19 +523,19 @@ function finish(won) {
 
 // Covers come from Wikipedia at runtime: search for the game's article and use its
 // lead image, which for games is almost always the box art.
-let covers = load('rgh-covers', {});
+let covers = load('rgh-covers2', {});
 const coverRequests = {};
 function getCover(game) {
   if (game in covers) return Promise.resolve(covers[game]);
   if (coverRequests[game]) return coverRequests[game];
   const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*' +
     '&generator=search&gsrlimit=1&gsrsearch=' + encodeURIComponent(game + ' video game') +
-    '&prop=pageimages&piprop=thumbnail&pithumbsize=400';
+    '&prop=pageimages&piprop=thumbnail&pithumbsize=400&pilicense=any';
   return coverRequests[game] = fetch(url).then(r => r.json()).then(data => {
     const page = Object.values(data.query?.pages || {})[0];
     const src = page?.thumbnail?.source || null;
     covers[game] = src;
-    save('rgh-covers', covers);
+    save('rgh-covers2', covers);
     return src;
   }).catch(() => null);
 }
@@ -617,10 +626,17 @@ $('hint-btn').onclick = () => { if (hints < HINT_STEPS) { hints++; renderHint();
 $('skip').onclick = () => advance({ kind: 'skipped' });
 $('new').onclick = giveUp;
 $('r-next').onclick = newRound;
+$('silent').onclick = () => {
+  if (!song) return;
+  offsets[song.videoId] = (offsets[song.videoId] || 0) + 3;
+  save('rgh-offsets', offsets);
+  $('note').textContent = 'Skipping 3 more seconds into this song.';
+  play();
+};
 $('r-listen').onclick = () => {
   stopPlayback();
   fullListen = true;
-  player.seekTo(song.start, true);
+  player.seekTo(startOf(song), true);
   player.playVideo();
 };
 
@@ -632,7 +648,7 @@ function onYouTubeIframeAPIReady() {
     events: {
       onReady: () => {
         ready = true;
-        if (song) player.cueVideoById({ videoId: song.videoId, startSeconds: song.start });
+        if (song) player.cueVideoById({ videoId: song.videoId, startSeconds: startOf(song) });
         setControls();
       },
       onError: e => {
