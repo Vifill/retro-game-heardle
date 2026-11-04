@@ -6,6 +6,10 @@ Every wrong guess shows how close it was: platform, year (with an arrow toward t
 genre, studio and series, coloured green (match), yellow (close) or grey (no). A summary box
 collects what you've learned so far.
 
+Other helpers: a **Hint** button (blurred box art, then clearer art, then the first letter),
+a "Right series!" badge when you guess the right franchise, and **Filters** for consoles and years.
+Box art is looked up on Wikipedia when the page runs.
+
 ## Files
 - `index.html` – the whole game (no build step, no server code)
 - `games.js` – clue data per game (genre, studio, series)

@@ -59,14 +59,14 @@
   .bar .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--bg); }
   .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
 
-  .controls { display: flex; gap: 8px; margin-bottom: 14px; }
+  .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
   button {
     font: inherit; border: 0; border-radius: 8px; padding: 11px 14px; cursor: pointer;
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
   }
   button:disabled { opacity: .45; cursor: default; }
   button.primary { background: var(--accent); color: #10201a; border-color: var(--accent); font-weight: 600; }
-  #play { flex: 1; }
+  #play { grid-column: 1 / -1; }
 
   .guess { position: relative; display: flex; gap: 8px; }
   .guess input {
@@ -95,14 +95,59 @@
   .result .row button { flex: 1; }
 
   .note { color: var(--muted); font-size: 12px; margin-top: 18px; }
+
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .link { background: none; border: 0; color: var(--muted); padding: 4px 0; font-size: 13px; text-decoration: underline; }
+  .filters {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+    padding: 12px; margin-bottom: 16px; display: grid; gap: 10px; font-size: 14px;
+  }
+  .filters[hidden] { display: none; }
+  .filters .plats { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .filters label { display: inline-flex; align-items: center; gap: 6px; }
+  .filters .years { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .filters input[type=number] {
+    width: 80px; font: inherit; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+  .filters .count { color: var(--muted); font-size: 12px; }
+
+  .hint { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+  .hint[hidden] { display: none; }
+  .cover {
+    width: 96px; height: 96px; border-radius: 8px; overflow: hidden; background: var(--panel);
+    flex: none; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 11px;
+  }
+  .cover img { width: 100%; height: 100%; object-fit: cover; transition: filter .4s; }
+  .hint .letter { font-size: 14px; color: var(--muted); }
+  .hint .letter b { color: var(--text); font-size: 20px; }
+  .series-badge {
+    display: inline-block; margin-left: 8px; font-size: 11px; padding: 1px 6px; border-radius: 4px;
+    background: var(--near); color: #2a1f05; vertical-align: 1px;
+  }
+  .result .cover { width: 120px; height: 120px; margin-bottom: 10px; }
+  .result .cover img { filter: none; }
   /* The YouTube player has to exist to play audio, but nobody needs to see it. */
   #player-wrap { position: fixed; left: -9999px; top: 0; width: 200px; height: 200px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Retro Game Heardle</h1>
-  <div class="sub">Guess the game from its music.</div>
+  <div class="top">
+    <div>
+      <h1>Retro Game Heardle</h1>
+      <div class="sub">Guess the game from its music.</div>
+    </div>
+    <button class="link" id="filters-toggle">Filters</button>
+  </div>
+  <div class="filters" id="filters" hidden>
+    <div class="plats" id="f-plats"></div>
+    <div class="years">
+      <label for="f-from">From</label><input type="number" id="f-from">
+      <label for="f-to">to</label><input type="number" id="f-to">
+    </div>
+    <div class="count" id="f-count"></div>
+  </div>
   <div class="stats">
     <span>Played <b id="s-played">0</b></span>
     <span>Won <b id="s-won">0</b></span>
@@ -119,7 +164,13 @@
   <div class="controls">
     <button id="play" class="primary" disabled>Loading…</button>
     <button id="skip" disabled>Skip (+1s)</button>
+    <button id="hint-btn" disabled>Hint</button>
     <button id="new">New song</button>
+  </div>
+
+  <div class="hint" id="hint" hidden>
+    <div class="cover" id="hint-cover"></div>
+    <div class="letter" id="hint-letter"></div>
   </div>
 
   <div class="guess">
@@ -129,6 +180,7 @@
   </div>
 
   <div class="result" id="result">
+    <div class="cover" id="r-cover"></div>
     <h2 id="r-title"></h2>
     <div class="meta" id="r-meta"></div>
     <div class="row">
@@ -163,7 +215,9 @@ let recent = load('rgh-recent', []);
 let broken = new Set(load('rgh-broken', []));
 
 let player, ready = false;
-let song = null, stage = 0, attempts = [], over = false;
+let song = null, stage = 0, attempts = [], over = false, hints = 0;
+const HINT_STEPS = 3;   // 1: very blurred cover, 2: less blurred, 3: first letter
+let filters = load('rgh-filters', null);
 let stopTimer = null, tickTimer = null, fullListen = false;
 
 function renderStats() {
@@ -222,6 +276,12 @@ function renderAttempts() {
       const name = document.createElement('div');
       name.className = 'name';
       name.textContent = a.kind === 'skipped' ? 'Skipped' : a.text;
+      if (a.series) {
+        const badge = document.createElement('span');
+        badge.className = 'series-badge';
+        badge.textContent = 'Right series!';
+        name.appendChild(badge);
+      }
       div.appendChild(name);
     }
     if (a && a.kind === 'wrong') {
@@ -297,10 +357,59 @@ function setControls() {
   $('skip').textContent = stage < STAGES.length - 1 ? `Skip (+${nextGain}s)` : 'Skip';
   $('input').disabled = !canPlay || over;
   $('submit').disabled = !canPlay || over;
+  $('hint-btn').disabled = !song || over || hints >= HINT_STEPS;
+  $('hint-btn').textContent = hints >= HINT_STEPS ? 'No hints left' : `Hint (${HINT_STEPS - hints} left)`;
+}
+
+const ALL_PLATFORMS = ['NES', 'PS1', 'PS2', 'PC'];
+const YEAR_MIN = Math.min(...SONGS.map(s => s.year)), YEAR_MAX = Math.max(...SONGS.map(s => s.year));
+if (!filters) filters = { platforms: ALL_PLATFORMS.slice(), from: YEAR_MIN, to: YEAR_MAX };
+
+function matchesFilters(s) {
+  const plats = s.platform.split('/');
+  return plats.some(p => filters.platforms.includes(p)) && s.year >= filters.from && s.year <= filters.to;
+}
+
+function setupFilters() {
+  const box = $('f-plats');
+  for (const p of ALL_PLATFORMS) {
+    const label = document.createElement('label');
+    label.innerHTML = `<input type="checkbox" id="f-${p}"> ${p}`;
+    box.appendChild(label);
+    const cb = label.querySelector('input');
+    cb.checked = filters.platforms.includes(p);
+    cb.onchange = () => {
+      filters.platforms = ALL_PLATFORMS.filter(x => $('f-' + x).checked);
+      filtersChanged();
+    };
+  }
+  for (const id of ['f-from', 'f-to']) {
+    const el = $(id);
+    el.min = YEAR_MIN; el.max = YEAR_MAX;
+    el.value = id === 'f-from' ? filters.from : filters.to;
+    el.onchange = () => {
+      filters.from = Number($('f-from').value) || YEAR_MIN;
+      filters.to = Number($('f-to').value) || YEAR_MAX;
+      filtersChanged();
+    };
+  }
+  $('filters-toggle').onclick = () => { $('filters').hidden = !$('filters').hidden; };
+  renderFilterCount();
+}
+function renderFilterCount() {
+  const n = SONGS.filter(matchesFilters).length;
+  $('f-count').textContent = n ? `${n} songs match` : 'No songs match, so all songs will be used.';
+}
+function filtersChanged() {
+  save('rgh-filters', filters);
+  renderFilterCount();
+  // Start a fresh round if the current song no longer fits.
+  if (song && !matchesFilters(song) && !attempts.length) newRound();
 }
 
 function pickSong() {
-  let pool = SONGS.filter(s => !broken.has(s.videoId));
+  let pool = SONGS.filter(s => !broken.has(s.videoId) && matchesFilters(s));
+  if (!pool.length) pool = SONGS.filter(s => !broken.has(s.videoId));
   if (!pool.length) { broken.clear(); save('rgh-broken', []); pool = SONGS; }
   let fresh = pool.filter(s => !recent.includes(s.videoId));
   if (!fresh.length) { recent = []; fresh = pool; }
@@ -310,14 +419,15 @@ function pickSong() {
 function newRound() {
   stopPlayback();
   song = pickSong();
-  stage = 0; attempts = []; over = false; fullListen = false;
+  stage = 0; attempts = []; over = false; fullListen = false; hints = 0;
   recent.push(song.videoId);
   recent = recent.slice(-RECENT_KEEP);
   save('rgh-recent', recent);
   $('result').style.display = 'none';
   $('input').value = '';
   $('note').textContent = '';
-  renderAttempts(); renderBar(); setControls();
+  renderAttempts(); renderBar(); setControls(); renderHint();
+  getCover(song.game);
   $('progress').style.width = '0';
   $('t-now').textContent = '0:00';
   if (ready) player.cueVideoById({ videoId: song.videoId, startSeconds: song.start });
@@ -377,7 +487,8 @@ function guess(text) {
     renderAttempts();
     finish(true);
   } else {
-    advance({ kind: 'wrong', text: match });
+    const series = INFO[match].series;
+    advance({ kind: 'wrong', text: match, series: !!series && series === INFO[song.game].series });
   }
 }
 
@@ -391,9 +502,62 @@ function finish(won) {
   const r = $('result');
   r.className = 'result ' + (won ? 'win' : 'lose');
   $('r-title').textContent = song.game;
-  $('r-meta').textContent = `${song.track} · ${song.platform} · ${song.year}` +
-    (won ? ` · got it in ${attempts.length}` : '');
+  const extras = [];
+  if (won) extras.push(`got it in ${attempts.length}`);
+  else if (attempts.some(a => a.series)) extras.push(`you had the series (${INFO[song.game].series})`);
+  if (hints) extras.push(`${hints} hint${hints > 1 ? 's' : ''}`);
+  $('r-meta').textContent = [`${song.track} · ${song.platform} · ${song.year}`, ...extras].join(' · ');
+  $('hint').hidden = true;
+  showCover($('r-cover'), song.game, 0);
   r.style.display = 'block';
+}
+
+// Covers come from Wikipedia at runtime: search for the game's article and use its
+// lead image, which for games is almost always the box art.
+let covers = load('rgh-covers', {});
+const coverRequests = {};
+function getCover(game) {
+  if (game in covers) return Promise.resolve(covers[game]);
+  if (coverRequests[game]) return coverRequests[game];
+  const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*' +
+    '&generator=search&gsrlimit=1&gsrsearch=' + encodeURIComponent(game + ' video game') +
+    '&prop=pageimages&piprop=thumbnail&pithumbsize=400';
+  return coverRequests[game] = fetch(url).then(r => r.json()).then(data => {
+    const page = Object.values(data.query?.pages || {})[0];
+    const src = page?.thumbnail?.source || null;
+    covers[game] = src;
+    save('rgh-covers', covers);
+    return src;
+  }).catch(() => null);
+}
+
+function showCover(box, game, blur) {
+  box.textContent = '…';
+  getCover(game).then(src => {
+    if (!song || song.game !== game) return;
+    box.textContent = '';
+    if (!src) { box.textContent = 'No cover found'; return; }
+    const img = document.createElement('img');
+    img.alt = '';
+    img.src = src;
+    img.style.filter = blur ? `blur(${blur}px)` : 'none';
+    img.onerror = () => { box.textContent = 'No cover found'; };
+    box.appendChild(img);
+  });
+}
+
+function renderHint() {
+  const box = $('hint');
+  box.hidden = hints === 0 || over;
+  if (box.hidden) return;
+  showCover($('hint-cover'), song.game, hints === 1 ? 14 : 6);
+  const letter = $('hint-letter');
+  if (hints >= 3) {
+    letter.innerHTML = 'Starts with <b></b> (ignoring “The”)';
+    letter.querySelector('b').textContent = song.game.replace(/^The /, '')[0];
+  } else {
+    letter.textContent = hints === 1 ? 'Tap Hint again for a clearer cover.' : 'One more hint: the first letter.';
+  }
 }
 
 function giveUp() {
@@ -449,6 +613,7 @@ $('submit').onclick = () => {
   guess(items.length === 1 && $('suggestions').style.display !== 'none' ? items[0].dataset.game : $('input').value);
 };
 $('play').onclick = play;
+$('hint-btn').onclick = () => { if (hints < HINT_STEPS) { hints++; renderHint(); setControls(); } };
 $('skip').onclick = () => advance({ kind: 'skipped' });
 $('new').onclick = giveUp;
 $('r-next').onclick = newRound;
@@ -484,6 +649,7 @@ function onYouTubeIframeAPIReady() {
 }
 
 renderStats();
+setupFilters();
 newRound();
 if (location.protocol === 'file:') {
   $('note').textContent = 'YouTube may refuse to play when this file is opened directly. Serve it over http (see README).';
