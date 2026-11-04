@@ -389,6 +389,17 @@
   .result .nextday:empty { display: none; }
   #r-share[hidden], #r-next[hidden], #filters-toggle[hidden] { display: none; }
 
+  /* ---------- Clue tooltip ---------- */
+  .clue { cursor: help; }
+  .tip {
+    position: absolute; z-index: 30; max-width: 240px; padding: 7px 10px; font-size: 13px; line-height: 1.35;
+    background: var(--text); color: var(--bg); border-radius: 6px; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  }
+  .tip[hidden] { display: none; }
+  [data-theme=arcade] .tip { font-family: "Space Mono", monospace; font-size: 12px; background: #00f0ff; color: #07021a; border-radius: 0; }
+  [data-theme=nes] .tip { font-family: "Press Start 2P", monospace; font-size: 8px; line-height: 1.7; background: #000; color: #fcfcfc; border: 3px double #fcfcfc; border-radius: 0; }
+  [data-theme=pc] .tip { background: #ffffe1; color: #000; border: 1px solid #000; border-radius: 0; box-shadow: 2px 2px 0 rgba(0,0,0,.3); font-size: 12px; }
+
   /* ---------- Footer + feedback ---------- */
   .foot { margin-top: 28px; font-size: 11px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; justify-content: space-between; }
   .foot .link { font-size: 12px; }
@@ -482,6 +493,7 @@
   </footer>
 </main>
 
+<div class="tip" id="tip" hidden></div>
 <dialog id="fb">
   <form id="fb-form">
     <b>Feedback</b>
@@ -583,6 +595,29 @@ function compare(guessName, answerName) {
   ];
 }
 
+// What a clue chip's colour means, shown on hover or tap.
+const TIPS = {
+  Platform: { hit: 'Same platform as the answer.', near: 'Shares a platform with the answer, but not all of them.', '': 'Different platform.' },
+  Year: { hit: 'Same year!', near: 'Within 2 years. The arrow points to the answer: ↑ newer, ↓ older.', '': 'More than 2 years off. ↑ means the answer is newer, ↓ older.' },
+  Genre: { hit: 'Same genre.', near: 'Overlapping genre (for example both RPGs), but not the same kind.', '': 'Different genre.' },
+  Studio: { hit: 'Same studio.', near: '', '': 'Different studio.' },
+  Series: { hit: 'Same series!', near: '', '': 'Different series.' },
+};
+const clueTip = c => `${c.k}: ${c.v}. ${(TIPS[c.k] || {})[c.state] || ''}`;
+function showTip(chip) {
+  const tip = $('tip');
+  tip.textContent = chip.dataset.tip;
+  tip.hidden = false;
+  const r = chip.getBoundingClientRect(), w = tip.offsetWidth;
+  tip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+  tip.style.top = (window.scrollY + r.top - tip.offsetHeight - 6) + 'px';
+}
+function hideTip() { $('tip').hidden = true; }
+document.addEventListener('pointerover', e => { const c = e.target.closest('.clue'); if (c && e.pointerType === 'mouse') showTip(c); });
+document.addEventListener('pointerout', e => { if (e.target.closest('.clue') && e.pointerType === 'mouse') hideTip(); });
+document.addEventListener('click', e => { const c = e.target.closest('.clue'); if (c) showTip(c); else hideTip(); });
+window.addEventListener('scroll', hideTip, { passive: true });
+
 function renderAttempts() {
   const box = $('attempts');
   box.innerHTML = '';
@@ -608,7 +643,8 @@ function renderAttempts() {
       for (const c of compare(a.text, song.game)) {
         const chip = document.createElement('div');
         chip.className = 'clue ' + c.state;
-        chip.title = `${c.k}: ${c.v}`;
+        chip.dataset.tip = clueTip(c);
+        chip.tabIndex = 0;
         chip.innerHTML = '<span class="k"></span><span class="v"></span>';
         chip.children[0].textContent = c.k;
         chip.children[1].textContent = c.v;
