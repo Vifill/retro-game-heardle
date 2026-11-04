@@ -42,6 +42,11 @@
   .player .now { min-width: 0; flex: 1; }
   .player .now b { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .player .pos { font-variant-numeric: tabular-nums; }
+  .pctl { display: grid; gap: 6px; margin-top: 6px; }
+  .pctl[hidden] { display: none !important; }
+  .pctl .row { gap: 5px; }
+  #p-seek { width: 100%; accent-color: var(--accent); padding: 0; border: 0; background: none; }
+  #s-val { width: 70px; }
   td .row { gap: 5px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -81,6 +86,7 @@
     .hide-sm { display: none; }
     td, th { padding: 6px 3px; }
     .player .yt, .player .yt iframe { width: 120px; height: 68px; }
+    .player { position: static; flex-wrap: wrap; }
   }
 </style>
 </head>
@@ -107,13 +113,26 @@
     <div class="player">
       <div class="yt"><div id="yt"></div></div>
       <div class="now">
-        <b id="now-title">Nothing playing</b>
+        <b id="now-title" style="display:block">Nothing playing</b>
         <span class="muted" id="now-sub">Press ▶ on any song.</span>
-        <div class="row" style="margin-top:6px">
-          <button class="small" id="p-toggle" disabled>Pause</button>
-          <button class="small" id="p-restart" disabled>From start</button>
-          <span class="pos muted" id="p-pos">0:00</span>
-          <button class="small" id="p-setstart" disabled title="Make the clip start at the current position">Set start here</button>
+        <div class="pctl" id="pctl" hidden>
+          <div class="row">
+            <button class="small" id="p-toggle">Pause</button>
+            <button class="small" data-seek="-5">−5s</button>
+            <button class="small" data-seek="-1">−1s</button>
+            <button class="small" data-seek="1">+1s</button>
+            <button class="small" data-seek="5">+5s</button>
+            <span class="pos muted" id="p-pos">0:00</span>
+          </div>
+          <input type="range" id="p-seek" min="0" max="100" step="0.1" value="0">
+          <div class="row">
+            <span class="muted">Clip starts at</span>
+            <button class="small" id="s-minus">−0.5</button>
+            <input type="number" id="s-val" class="start" min="0" step="0.5">
+            <button class="small" id="s-plus">+0.5</button>
+            <button class="small" id="p-setstart" title="Use the current playback position">Use current time</button>
+            <button class="small primary" id="p-test" title="Play the first 2 seconds, like the game does">Test 2s clip</button>
+          </div>
         </div>
       </div>
     </div>
@@ -291,10 +310,18 @@ function playSong(s) {
   yt.loadVideoById({ videoId: s.videoId, startSeconds: s.start || 1 });
   $('now-title').textContent = `${s.game} — ${s.track}`;
   $('now-sub').textContent = `${s.platform} · ${s.year} · clip starts at ${s.start || 1}s`;
-  ['p-toggle', 'p-restart', 'p-setstart'].forEach(id => $(id).disabled = false);
+  $('pctl').hidden = false;
   $('p-toggle').textContent = 'Pause';
+  $('s-val').value = s.start || 0;
   clearInterval(posTimer);
-  posTimer = setInterval(() => { if (yt.getCurrentTime) $('p-pos').textContent = fmt(yt.getCurrentTime() || 0); }, 250);
+  posTimer = setInterval(() => {
+    if (!yt.getCurrentTime) return;
+    const t = yt.getCurrentTime() || 0, d = yt.getDuration ? yt.getDuration() || 0 : 0;
+    $('p-pos').textContent = fmt(t) + (d ? ' / ' + fmt(d) : '');
+    if (d) $('p-seek').max = d;
+    if (!seeking) $('p-seek').value = t;
+    if (testEnd !== null && t >= testEnd) { yt.pauseVideo(); testEnd = null; $('p-toggle').textContent = 'Play'; }
+  }, 100);
   document.querySelectorAll('tr.playing').forEach(r => r.classList.remove('playing'));
   document.querySelectorAll(`tr[data-vid="${s.videoId}"]`).forEach(r => r.classList.add('playing'));
 }
@@ -302,13 +329,31 @@ $('p-toggle').onclick = () => {
   if (yt.getPlayerState() === 1) { yt.pauseVideo(); $('p-toggle').textContent = 'Play'; }
   else { yt.playVideo(); $('p-toggle').textContent = 'Pause'; }
 };
-$('p-restart').onclick = () => { if (current) { yt.seekTo(current.start || 1, true); yt.playVideo(); } };
-$('p-setstart').onclick = () => {
+let seeking = false, testEnd = null;
+document.querySelectorAll('[data-seek]').forEach(b => b.onclick = () => {
+  testEnd = null;
+  yt.seekTo(Math.max(0, (yt.getCurrentTime() || 0) + Number(b.dataset.seek)), true);
+});
+$('p-seek').oninput = () => { seeking = true; };
+$('p-seek').onchange = () => { testEnd = null; yt.seekTo(Number($('p-seek').value), true); seeking = false; };
+function setStart(v) {
   if (!current) return;
   const s = songs.find(x => x.videoId === current.videoId);
-  s.start = Math.max(0, Math.round(yt.getCurrentTime() * 2) / 2);
-  current = s; markDirty('songs'); renderSongs();
-  $('now-sub').textContent = `${s.platform} · ${s.year} · clip now starts at ${s.start}s (unsaved)`;
+  s.start = Math.max(0, Math.round(v * 2) / 2);
+  current = s; $('s-val').value = s.start;
+  markDirty('songs'); renderSongs();
+  $('now-sub').textContent = `${s.platform} · ${s.year} · clip starts at ${s.start}s (unsaved)`;
+}
+$('s-minus').onclick = () => setStart((current.start || 0) - 0.5);
+$('s-plus').onclick = () => setStart((current.start || 0) + 0.5);
+$('s-val').onchange = () => setStart(Number($('s-val').value) || 0);
+$('p-setstart').onclick = () => setStart(yt.getCurrentTime() || 0);
+// Same as the game's first stage: the clip from the start time, 2 seconds long.
+$('p-test').onclick = () => {
+  if (!current) return;
+  const start = current.start || 1;
+  yt.seekTo(start, true); yt.playVideo();
+  testEnd = start + 2; $('p-toggle').textContent = 'Pause';
 };
 
 // ---------- Schedule ----------
