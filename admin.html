@@ -52,6 +52,7 @@
   tr.today td { background: rgba(124,242,164,.07); }
   tr.past td { opacity: .55; }
   tr.playing td { background: rgba(232,194,90,.12); }
+  tr.off td.game { opacity: .5; }
   .badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--line); color: var(--muted); }
   .badge.pinned { background: var(--accent); color: #10201a; }
   .badge.err { background: var(--warn); color: #2a0b10; }
@@ -147,7 +148,7 @@
         <input type="search" id="q" placeholder="Search game or track…">
         <span id="plats"></span>
         <label>Year <input type="number" id="y-from"> – <input type="number" id="y-to"></label>
-        <label><input type="checkbox" id="only-err"> Only problems</label>
+        <label><input type="checkbox" id="only-err"> Only problems / off</label>
       </div>
       <div class="muted" id="song-count" style="margin:8px 0"></div>
       <table>
@@ -163,6 +164,19 @@
   <button id="discard">Discard</button>
   <button class="primary" id="save">Save to site</button>
 </div>
+
+<dialog id="swap">
+  <b>Swap track: <span id="swap-title"></span></b>
+  <p class="muted">Paste a YouTube link for a better-known track or a cleaner upload.
+    <a id="swap-search" target="_blank" rel="noopener">Search YouTube</a></p>
+  <label class="muted">Track name<br><input id="swap-track" style="width:100%"></label>
+  <label class="muted" style="display:block;margin-top:8px">YouTube link or ID<br><input id="swap-url" style="width:100%" placeholder="https://www.youtube.com/watch?v=…"></label>
+  <div class="row" style="margin-top:12px">
+    <span class="status" id="swap-status" style="flex:1"></span>
+    <button id="swap-cancel">Cancel</button>
+    <button class="primary" id="swap-save">Use this</button>
+  </div>
+</dialog>
 
 <dialog id="picker">
   <div class="row">
@@ -224,7 +238,7 @@ function parseSongs(text) {
 }
 function songsFile(list) {
   const sorted = [...list].sort((a, b) => a.platform.localeCompare(b.platform) || a.year - b.year || a.game.localeCompare(b.game));
-  const fields = s => JSON.stringify({ game: s.game, platform: s.platform, year: s.year, track: s.track, videoId: s.videoId, start: s.start })
+  const fields = s => JSON.stringify({ game: s.game, platform: s.platform, year: s.year, track: s.track, videoId: s.videoId, start: s.start, ...(s.off ? { off: true } : {}) })
     .replace(/":/g, '": ').replace(/,"/g, ', "');
   return '// Track list: one entry per song. Add more by copying a line.\n' +
     '// start = seconds into the video where the clip begins.\n' +
@@ -451,7 +465,7 @@ function renderSongs() {
     (!q || (s.game + ' ' + s.track).toLowerCase().includes(q)) &&
     s.platform.split('/').some(p => plats.includes(p)) &&
     s.year >= from && s.year <= to &&
-    (!onlyErr || problems[s.videoId]))
+    (!onlyErr || problems[s.videoId] || s.off))
     .sort((a, b) => a.game.localeCompare(b.game));
   $('song-count').textContent = `${list.length} of ${songs.length} songs`;
   const body = $('song-body'); body.innerHTML = '';
@@ -463,11 +477,18 @@ function renderSongs() {
       <td class="game"></td>
       <td class="hide-sm">${s.platform}</td><td class="hide-sm">${s.year}</td>
       <td><input class="start" type="number" min="0" step="0.5"></td>
-      <td><a href="https://www.youtube.com/watch?v=${encodeURIComponent(s.videoId)}" target="_blank" rel="noopener">YouTube</a></td>`;
+      <td><div class="row" style="justify-content:flex-end">
+        <button class="small" data-a="swap" title="Use a different track or upload">Swap</button>
+        <button class="small" data-a="off">${s.off ? 'Turn on' : 'Turn off'}</button>
+      </div></td>`;
+    if (s.off) tr.classList.add('off');
     const g = tr.querySelector('.game');
     g.append(s.game);
     if (problems[s.videoId]) { const d = document.createElement('span'); d.className = 'badge err'; d.textContent = "won't play"; g.append(' ', d); }
+    if (s.off) { const d = document.createElement('span'); d.className = 'badge'; d.textContent = 'off'; g.append(' ', d); }
     const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = s.track; g.append(sub);
+    tr.querySelector('[data-a=off]').onclick = () => { s.off = !s.off; markDirty('songs'); renderSongs(); renderSchedule(); };
+    tr.querySelector('[data-a=swap]').onclick = () => openSwap(s);
     const inp = tr.querySelector('input.start');
     inp.value = s.start || 0;
     inp.onchange = () => { s.start = Math.max(0, Number(inp.value) || 0); markDirty('songs'); };
@@ -475,6 +496,41 @@ function renderSongs() {
     body.appendChild(tr);
   }
 }
+
+// ---------- Swap a song's track ----------
+let swapping = null;
+function youtubeId(text) {
+  text = text.trim();
+  const m = text.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/) || text.match(/^([\w-]{11})$/);
+  return m ? m[1] : null;
+}
+function openSwap(s) {
+  swapping = s;
+  $('swap-title').textContent = s.game;
+  $('swap-track').value = s.track;
+  $('swap-url').value = '';
+  $('swap-status').textContent = '';
+  $('swap-search').href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(s.game + ' soundtrack');
+  $('swap').showModal();
+  $('swap-url').focus();
+}
+$('swap-cancel').onclick = () => $('swap').close();
+$('swap-save').onclick = () => {
+  const id = youtubeId($('swap-url').value);
+  if (!id) { $('swap-status').textContent = 'Paste a YouTube link or 11-character video ID.'; return; }
+  if (songs.some(x => x.videoId === id && x !== swapping)) { $('swap-status').textContent = 'That video is already used by another song.'; return; }
+  const old = swapping.videoId;
+  swapping.videoId = id;
+  swapping.track = $('swap-track').value.trim() || swapping.track;
+  swapping.start = 0;
+  // Days pinned to the old video follow the song to its new video.
+  for (const k of Object.keys(schedule)) if (schedule[k] === old) { schedule[k] = id; markDirty('schedule'); }
+  delete problems[old];
+  markDirty('songs');
+  $('swap').close();
+  renderSongs(); renderSchedule();
+  playSong(swapping);
+};
 
 // ---------- Tabs ----------
 $('t-schedule').onclick = () => { $('schedule').hidden = false; $('songs').hidden = true; $('t-schedule').classList.add('on'); $('t-songs').classList.remove('on'); };

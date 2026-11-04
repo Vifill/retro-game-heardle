@@ -33,7 +33,8 @@ window.DAILY = (() => {
   // every game before any repeats.
   function autoOrder(songs) {
     const byGame = new Map();
-    for (const s of [...songs].sort((a, b) => a.videoId.localeCompare(b.videoId))) {
+    // Songs switched off in the admin page never come up automatically.
+    for (const s of songs.filter(s => !s.off).sort((a, b) => a.videoId.localeCompare(b.videoId))) {
       if (!byGame.has(s.game)) byGame.set(s.game, s);
     }
     const list = [...byGame.values()].sort((a, b) => a.game.localeCompare(b.game));

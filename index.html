@@ -762,8 +762,9 @@ function filtersChanged() {
 }
 
 function pickSong() {
-  let pool = SONGS.filter(s => !broken.has(s.videoId) && matchesFilters(s));
-  if (!pool.length) pool = SONGS.filter(s => !broken.has(s.videoId));
+  const live = SONGS.filter(s => !s.off);
+  let pool = live.filter(s => !broken.has(s.videoId) && matchesFilters(s));
+  if (!pool.length) pool = live.filter(s => !broken.has(s.videoId));
   if (!pool.length) { broken.clear(); save('rgh-broken', []); pool = SONGS; }
   const todays = DAILY.pick(DAILY.today(), SONGS, schedule).song;
   if (pool.length > 1) pool = pool.filter(s => s.game !== todays.game);
