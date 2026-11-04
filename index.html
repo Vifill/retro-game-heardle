@@ -373,6 +373,34 @@
   [data-theme=pc] .known .v.found { color: #000080; font-weight: bold; }
   [data-theme=pc] .series-badge { background: #ffe873; }
   [data-theme=pc] main { box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #dfdfdf, 4px 4px 0 rgba(0,0,0,.25); }
+
+  /* ---------- Daily / practice ---------- */
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .modes button { padding: 8px; }
+  .modes button.on { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+  [data-theme=pc] .modes button.on { background: #c0c0c0; color: #000; border-color: #000 #fff #fff #000; box-shadow: inset 1px 1px 0 #808080; font-weight: bold; }
+  .modes[hidden], .daylabel:empty { display: none; }
+  .daylabel { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .daylabel b { color: var(--text); }
+  .daylabel.preview { color: var(--near); }
+  .controls.daily { grid-template-columns: repeat(2, 1fr); }
+  .controls.daily #new { display: none; }
+  .result .nextday { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .result .nextday:empty { display: none; }
+  #r-share[hidden], #r-next[hidden], #filters-toggle[hidden] { display: none; }
+
+  /* ---------- Footer + feedback ---------- */
+  .foot { margin-top: 28px; font-size: 11px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; justify-content: space-between; }
+  .foot .link { font-size: 12px; }
+  .foot .link[hidden] { display: none; }
+  #fb { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; width: min(420px, 92vw); padding: 16px; }
+  #fb::backdrop { background: rgba(0,0,0,.6); }
+  #fb form { display: grid; gap: 10px; }
+  #fb .fb-sub { margin: 0; font-size: 13px; color: var(--muted); }
+  #fb textarea, #fb input { font: inherit; font-size: 15px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  #fb .fb-row { display: flex; gap: 8px; align-items: center; }
+  #fb #fb-status { flex: 1; font-size: 12px; color: var(--muted); }
+  [data-theme=pc] #fb, [data-theme=arcade] #fb, [data-theme=nes] #fb { border-radius: 0; }
 </style>
 </head>
 <body>
@@ -384,6 +412,11 @@
     </div>
     <button class="link" id="filters-toggle">Filters</button>
   </div>
+  <div class="modes" id="modes">
+    <button id="m-daily">Daily</button>
+    <button id="m-practice">Practice</button>
+  </div>
+  <div class="daylabel" id="daylabel"></div>
   <div class="themes" id="themes">Style:
     <button data-t="classic">Classic</button>
     <button data-t="arcade">Arcade</button>
@@ -435,16 +468,37 @@
     <div class="meta" id="r-meta"></div>
     <div class="row">
       <button id="r-listen">Play full song</button>
+      <button id="r-share" class="primary">Share</button>
       <button id="r-next" class="primary">Next song</button>
     </div>
+    <div class="nextday" id="r-nextday"></div>
   </div>
 
   <div class="note" id="note"></div>
   <div id="player-wrap"><div id="player"></div></div>
+  <footer class="foot">
+    Unofficial fan project. All music belongs to its composers and publishers.
+    <button class="link" id="fb-open" hidden>Send feedback</button>
+  </footer>
 </main>
+
+<dialog id="fb">
+  <form id="fb-form">
+    <b>Feedback</b>
+    <p class="fb-sub">Bug, wrong song, idea? It goes straight to the maker.</p>
+    <textarea id="fb-msg" rows="5" required placeholder="What's up?"></textarea>
+    <input id="fb-contact" placeholder="Your email (optional, if you want a reply)">
+    <div class="fb-row">
+      <span id="fb-status"></span>
+      <button type="button" id="fb-cancel">Cancel</button>
+      <button type="submit" class="primary" id="fb-send">Send</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="songs.js"></script>
 <script src="games.js"></script>
+<script src="daily.js"></script>
 <script>
 const STAGES = [2, 4, 7, 11, 16, 22];
 const MAX = STAGES[STAGES.length - 1];
@@ -465,7 +519,16 @@ function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 
-let stats = load('rgh-stats', { played: 0, won: 0, streak: 0, best: 0 });
+// Modes: 'daily' (one song per day, same for everyone) or 'practice' (endless, filterable).
+const params = new URLSearchParams(location.search);
+const preview = params.get('preview') === '1' && DAILY.isKey(params.get('date'));
+let mode = params.get('mode') === 'practice' && !preview ? 'practice' : 'daily';
+let dayKey = preview ? params.get('date') : DAILY.today();
+let schedule = {};
+let won = false;
+const statsKey = () => mode === 'daily' ? 'rgh-dstats' : 'rgh-stats';
+const blankStats = () => ({ played: 0, won: 0, streak: 0, best: 0 });
+let stats = load(statsKey(), blankStats());
 let recent = load('rgh-recent', []);
 let broken = new Set(load('rgh-broken', []));
 
@@ -666,6 +729,8 @@ function pickSong() {
   let pool = SONGS.filter(s => !broken.has(s.videoId) && matchesFilters(s));
   if (!pool.length) pool = SONGS.filter(s => !broken.has(s.videoId));
   if (!pool.length) { broken.clear(); save('rgh-broken', []); pool = SONGS; }
+  const todays = DAILY.pick(DAILY.today(), SONGS, schedule).song;
+  if (pool.length > 1) pool = pool.filter(s => s.game !== todays.game);
   let fresh = pool.filter(s => !recent.includes(s.videoId));
   if (!fresh.length) { recent = []; fresh = pool; }
   // Pick a game first, then one of its songs, so games with more tracks don't come up more often.
@@ -677,11 +742,21 @@ function pickSong() {
 
 function newRound() {
   stopPlayback();
-  song = pickSong();
-  stage = 0; attempts = []; over = false; fullListen = false; hints = 0;
-  recent.push(song.videoId);
-  recent = recent.slice(-RECENT_KEEP);
-  save('rgh-recent', recent);
+  stage = 0; attempts = []; over = false; won = false; fullListen = false; hints = 0;
+  if (mode === 'daily') {
+    song = DAILY.pick(dayKey, SONGS, schedule).song;
+    const saved = preview ? null : load('rgh-daily', null);
+    if (saved && saved.key === dayKey && saved.videoId === song.videoId) {
+      attempts = saved.attempts; hints = saved.hints; over = saved.over; won = saved.won;
+      stage = Math.min(attempts.length, STAGES.length - 1);
+    }
+  } else {
+    song = pickSong();
+    recent.push(song.videoId);
+    recent = recent.slice(-RECENT_KEEP);
+    save('rgh-recent', recent);
+  }
+  renderMode();
   $('result').style.display = 'none';
   $('input').value = '';
   $('note').textContent = '';
@@ -690,6 +765,42 @@ function newRound() {
   $('progress').style.width = '0';
   $('t-now').textContent = '0:00';
   if (ready) player.cueVideoById({ videoId: song.videoId, startSeconds: startOf(song) });
+  if (over) finish(won, true);
+}
+
+// Remember today's progress so a reload doesn't reset the daily puzzle.
+function saveDaily() {
+  if (mode !== 'daily' || preview) return;
+  save('rgh-daily', { key: dayKey, videoId: song.videoId, attempts, hints, over, won });
+}
+
+function renderMode() {
+  $('m-daily').classList.toggle('on', mode === 'daily');
+  $('m-practice').classList.toggle('on', mode === 'practice');
+  $('modes').hidden = preview;
+  const daily = mode === 'daily';
+  document.querySelector('.controls').classList.toggle('daily', daily);
+  $('filters-toggle').hidden = daily;
+  if (daily) $('filters').hidden = true;
+  $('r-share').hidden = !daily;
+  $('r-next').hidden = daily && preview;
+  $('r-next').textContent = daily ? 'Practice mode' : 'Next song';
+  const label = $('daylabel');
+  const date = new Date(dayKey + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  label.className = 'daylabel' + (preview ? ' preview' : '');
+  if (!daily) label.textContent = 'Practice: endless songs, use Filters to narrow them down.';
+  else label.innerHTML = (preview ? 'Preview of ' : '') + `<b>Daily #${DAILY.number(dayKey)}</b> · ${date}` + (preview ? ' (nothing is saved)' : '');
+}
+
+function setMode(m) {
+  if (m === mode || preview) return;
+  mode = m;
+  stats = load(statsKey(), blankStats());
+  renderStats();
+  const url = new URL(location.href);
+  if (m === 'practice') url.searchParams.set('mode', 'practice'); else url.searchParams.delete('mode');
+  history.replaceState(null, '', url);
+  newRound();
 }
 
 function stopPlayback() {
@@ -728,6 +839,7 @@ function play() {
 
 function advance(entry) {
   attempts.push(entry);
+  saveDaily();
   if (stage < STAGES.length - 1 && attempts.length < STAGES.length) {
     stage++;
     renderAttempts(); renderBar(); setControls();
@@ -746,6 +858,7 @@ function guess(text) {
   hideSuggestions();
   if (match === song.game) {
     attempts.push({ kind: 'right', text: match });
+    saveDaily();
     renderAttempts();
     finish(true);
   } else {
@@ -754,12 +867,29 @@ function guess(text) {
   }
 }
 
-function finish(won) {
-  over = true;
-  stats.played++;
-  if (won) { stats.won++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
-  else stats.streak = 0;
-  save('rgh-stats', stats); renderStats(); renderKnown();
+function finish(didWin, restoring = false) {
+  over = true; won = didWin;
+  if (!restoring && !preview) {
+    if (mode === 'daily') {
+      if (stats.lastPlayed !== dayKey) {
+        stats.played++;
+        if (won) {
+          stats.won++;
+          stats.streak = stats.lastWin === DAILY.addDays(dayKey, -1) ? stats.streak + 1 : 1;
+          stats.lastWin = dayKey;
+          stats.best = Math.max(stats.best, stats.streak);
+        } else stats.streak = 0;
+        stats.lastPlayed = dayKey;
+      }
+    } else {
+      stats.played++;
+      if (won) { stats.won++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
+      else stats.streak = 0;
+    }
+    save(statsKey(), stats);
+    saveDaily();
+  }
+  renderStats(); renderKnown(); renderAttempts(); renderHint();
   stage = STAGES.length - 1; renderBar(); setControls();
   const r = $('result');
   r.className = 'result ' + (won ? 'win' : 'lose');
@@ -772,7 +902,45 @@ function finish(won) {
   $('hint').hidden = true;
   showCover($('r-cover'), song.game, 0);
   r.style.display = 'block';
+  startCountdown();
 }
+
+// Time until tomorrow's song, shown under a finished daily puzzle.
+let countdownTimer = null;
+function startCountdown() {
+  clearInterval(countdownTimer);
+  const box = $('r-nextday');
+  if (mode !== 'daily' || preview) { box.textContent = ''; return; }
+  const tick = () => {
+    if (DAILY.today() !== dayKey) { box.textContent = 'A new song is ready. Reload to play it.'; clearInterval(countdownTimer); return; }
+    const now = new Date(), mid = new Date(now); mid.setHours(24, 0, 0, 0);
+    const sec = Math.floor((mid - now) / 1000);
+    box.textContent = `Next song in ${Math.floor(sec / 3600)}h ${String(Math.floor(sec / 60) % 60).padStart(2, '0')}m ${String(sec % 60).padStart(2, '0')}s`;
+  };
+  tick(); countdownTimer = setInterval(tick, 1000);
+}
+
+function shareText() {
+  const cells = [];
+  for (let i = 0; i < STAGES.length; i++) {
+    const a = attempts[i];
+    cells.push(!a ? '⬜' : a.kind === 'right' ? '🟩' : a.kind === 'skipped' ? '⬛' : a.series ? '🟨' : '🟥');
+  }
+  const score = won ? `${attempts.length}/${STAGES.length}` : `X/${STAGES.length}`;
+  const extra = hints ? ` 💡${hints}` : '';
+  return `${document.title} #${DAILY.number(dayKey)} ${score}${extra}\n🎵${cells.join('')}\n${location.origin}${location.pathname}`;
+}
+$('r-share').onclick = async () => {
+  const text = shareText();
+  try {
+    if (navigator.share) await navigator.share({ text });
+    else { await navigator.clipboard.writeText(text); $('note').textContent = 'Result copied. Paste it anywhere.'; }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    try { await navigator.clipboard.writeText(text); $('note').textContent = 'Result copied. Paste it anywhere.'; }
+    catch { $('note').textContent = text; }
+  }
+};
 
 // Covers come from Wikipedia at runtime: search for the game's article and use its
 // lead image, which for games is almost always the box art.
@@ -823,6 +991,7 @@ function renderHint() {
 }
 
 function giveUp() {
+  if (mode === 'daily') return;
   // "New song" mid-round counts as a loss so the streak means something.
   if (song && !over && attempts.length) { stats.played++; stats.streak = 0; save('rgh-stats', stats); renderStats(); }
   newRound();
@@ -875,10 +1044,12 @@ $('submit').onclick = () => {
   guess(items.length === 1 && $('suggestions').style.display !== 'none' ? items[0].dataset.game : $('input').value);
 };
 $('play').onclick = play;
-$('hint-btn').onclick = () => { if (hints < HINT_STEPS) { hints++; renderHint(); setControls(); } };
+$('hint-btn').onclick = () => { if (hints < HINT_STEPS) { hints++; saveDaily(); renderHint(); setControls(); } };
 $('skip').onclick = () => advance({ kind: 'skipped' });
 $('new').onclick = giveUp;
-$('r-next').onclick = newRound;
+$('r-next').onclick = () => mode === 'daily' ? setMode('practice') : newRound();
+$('m-daily').onclick = () => setMode('daily');
+$('m-practice').onclick = () => setMode('practice');
 $('silent').onclick = () => {
   if (!song) return;
   offsets[song.videoId] = (offsets[song.videoId] || 0) + 3;
@@ -906,7 +1077,8 @@ function onYouTubeIframeAPIReady() {
       },
       onError: e => {
         // Removed, private, or not embeddable: remember it and move on.
-        console.warn('Skipping unplayable video', song && song.videoId, e.data);
+        console.warn('Unplayable video', song && song.videoId, e.data);
+        if (mode === 'daily') { $('note').textContent = "Today's song won't play right now. Try reloading, or play Practice meanwhile."; return; }
         if (song) { broken.add(song.videoId); save('rgh-broken', [...broken]); }
         $('note').textContent = `Skipped a song that wouldn't play (${song ? song.game : ''}).`;
         const msg = $('note').textContent;
@@ -916,6 +1088,36 @@ function onYouTubeIframeAPIReady() {
     }
   });
 }
+
+// Feedback goes to a Formspree form, which forwards it by email. The address never
+// appears on the page. Paste the form's endpoint here to turn the button on.
+const FEEDBACK_URL = '';
+function setupFeedback() {
+  if (!FEEDBACK_URL) return;
+  $('fb-open').hidden = false;
+  $('fb-open').onclick = () => { $('fb-status').textContent = ''; $('fb').showModal(); $('fb-msg').focus(); };
+  $('fb-cancel').onclick = () => $('fb').close();
+  $('fb-form').onsubmit = async e => {
+    e.preventDefault();
+    $('fb-send').disabled = true; $('fb-status').textContent = 'Sending…';
+    const context = mode === 'daily' ? `Daily #${DAILY.number(dayKey)}` : 'Practice';
+    try {
+      const r = await fetch(FEEDBACK_URL, {
+        method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: $('fb-msg').value, email: $('fb-contact').value || undefined,
+          context, song: over || mode === 'practice' ? `${song.game} – ${song.track} (${song.videoId})` : '(daily, not finished)',
+          theme: document.documentElement.dataset.theme || 'classic', page: location.href,
+        }),
+      });
+      if (!r.ok) throw new Error(r.status);
+      $('fb-msg').value = ''; $('fb-status').textContent = 'Thanks! Sent.';
+      setTimeout(() => $('fb').close(), 1200);
+    } catch { $('fb-status').textContent = "Couldn't send. Try again later."; }
+    finally { $('fb-send').disabled = false; }
+  };
+}
+setupFeedback();
 
 function setupThemes() {
   const mark = () => document.querySelectorAll('#themes button').forEach(b =>
@@ -931,7 +1133,7 @@ function setupThemes() {
 setupThemes();
 renderStats();
 setupFilters();
-newRound();
+DAILY.loadSchedule().then(s => { schedule = s; newRound(); });
 if (location.protocol === 'file:') {
   $('note').textContent = 'YouTube may refuse to play when this file is opened directly. Serve it over http (see README).';
 }
