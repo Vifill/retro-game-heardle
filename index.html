@@ -409,7 +409,7 @@
   <div class="attempts" id="attempts"></div>
 
   <div class="bar" id="bar"><div class="unlocked" id="unlocked"></div><div class="progress" id="progress"></div></div>
-  <div class="times"><span id="t-now">0:00</span><button class="silent" id="silent">Silent? Skip ahead</button><span id="t-max">0:22</span></div>
+  <div class="times"><span id="t-now">0:00</span><button class="silent" id="silent">Intro or silence? Skip ahead</button><span id="t-max">0:22</span></div>
 
   <div class="controls">
     <button id="play" class="primary" disabled>Loading…</button>
@@ -450,7 +450,7 @@ const STAGES = [2, 4, 7, 11, 16, 22];
 const MAX = STAGES[STAGES.length - 1];
 // Many uploads open with a beat of silence, so songs without a set start skip the first second.
 const LEAD_IN = 1;
-// Per-song extra skip, added when the player taps "Silent? Skip ahead".
+// Per-song extra skip, added when the player taps "Intro or silence? Skip ahead".
 let offsets = load('rgh-offsets', {});
 function startOf(s) { return (s.start || LEAD_IN) + (offsets[s.videoId] || 0); }
 const RECENT_KEEP = 40;

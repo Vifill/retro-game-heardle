@@ -56,7 +56,7 @@ window.SONGS = [
   {"game": "Mafia: The City of Lost Heaven", "platform": "PC", "year": 2002, "track": "Main Theme", "videoId": "wCsrihEJlcU", "start": 0},
   {"game": "Medal of Honor: Allied Assault", "platform": "PC", "year": 2002, "track": "Main Theme", "videoId": "f23V6z8jxPU", "start": 0},
   {"game": "Neverwinter Nights", "platform": "PC", "year": 2002, "track": "Main Theme", "videoId": "gb133m_AEnY", "start": 0},
-  {"game": "The Elder Scrolls III: Morrowind", "platform": "PC", "year": 2002, "track": "Nerevar Rising", "videoId": "tA77aom3ZXI", "start": 0},
+  {"game": "The Elder Scrolls III: Morrowind", "platform": "PC", "year": 2002, "track": "Nerevar Rising", "videoId": "C9xch8D--gc", "start": 0},
   {"game": "Warcraft III: Reign of Chaos", "platform": "PC", "year": 2002, "track": "Human Theme", "videoId": "OXajx7l4VxE", "start": 0},
   {"game": "Call of Duty", "platform": "PC", "year": 2003, "track": "Main Menu Theme", "videoId": "zin-sKiTlyY", "start": 0},
   {"game": "Freelancer", "platform": "PC", "year": 2003, "track": "Liberty Space", "videoId": "Z6NlKWAaBH8", "start": 0},
