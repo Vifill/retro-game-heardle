@@ -49,7 +49,7 @@ window.SONGS = [
   {"game": "Might and Magic VIII: Day of the Destroyer", "platform": "PC", "year": 2000, "track": "Dagger Wound Island", "videoId": "dPr2Cmu4WMI", "start": 0},
   {"game": "The Sims", "platform": "PC", "year": 2000, "track": "Building Mode 1", "videoId": "Bs5QGN-zhwM", "start": 0},
   {"game": "Max Payne", "platform": "PC", "year": 2001, "track": "Main Theme", "videoId": "sN7PVi83D5s", "start": 0},
-  {"game": "Stronghold", "platform": "PC", "year": 2001, "track": "The Chant", "videoId": "_JB_963L5o8", "start": 0},
+  {"game": "Stronghold", "platform": "PC", "year": 2001, "track": "Castle Jam", "videoId": "1aj-JKWYQck", "start": 0},
   {"game": "Age of Mythology", "platform": "PC", "year": 2002, "track": "Eat Your Potatoes", "videoId": "gMOLrTNdTlU", "start": 0},
   {"game": "Battlefield 1942", "platform": "PC", "year": 2002, "track": "Main Theme", "videoId": "8vjB-VaFrsc", "start": 0},
   {"game": "Gothic II", "platform": "PC", "year": 2002, "track": "Main Theme", "videoId": "m9b4M_HTD6I", "start": 0},
