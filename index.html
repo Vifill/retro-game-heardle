@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&family=VT323&display=swap" rel="stylesheet">
 <script>
   // Apply the saved style before first paint. ?theme=nes etc. also works.
   (function () {
@@ -328,6 +328,51 @@
   [data-theme=pc] .attempt.right .name { font-weight: bold; }
   [data-theme=pc] .result h2::before { content: "✔ "; }
   [data-theme=pc] .result.lose h2::before { content: "✖ "; }
+
+  /* ---------- Calmer pass: keep the look, cut the noise ---------- */
+  /* Arcade: one readable font for text, glow only where it matters, softer scanlines. */
+  [data-theme=arcade] { --line: #4a2f8f; --muted: #a99fd6; --hit: #2fd27a; --near: #f2c94c; }
+  [data-theme=arcade] body { font: 15px/1.45 "Space Mono", ui-monospace, monospace; }
+  [data-theme=arcade] body::after { background: repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 4px); box-shadow: inset 0 0 80px rgba(0,0,0,.5); }
+  [data-theme=arcade] h1 { animation: none; text-shadow: 0 0 10px rgba(255,43,214,.6), 2px 2px 0 #2b0a6b; }
+  [data-theme=arcade] .sub { font-size: 13px; text-shadow: none; }
+  [data-theme=arcade] .stats, [data-theme=arcade] .times, [data-theme=arcade] .note { font-size: 13px; }
+  [data-theme=arcade] .stats b { text-shadow: none; }
+  [data-theme=arcade] .attempt { font-size: 14px; border: 1px solid var(--line); }
+  [data-theme=arcade] .attempt.wrong { border-color: #7a2d55; box-shadow: none; }
+  [data-theme=arcade] .attempt.right { box-shadow: none; }
+  [data-theme=arcade] .attempt.empty { border: 1px dashed #33226a; }
+  [data-theme=arcade] .clue { font-size: 12px; }
+  [data-theme=arcade] .clue .k { font-size: 9px; }
+  [data-theme=arcade] .clue.hit { box-shadow: none; }
+  [data-theme=arcade] button { font: 9px/1.4 "Press Start 2P", monospace; border: 1px solid #1fa8b8; box-shadow: none; padding: 13px 6px; }
+  [data-theme=arcade] button.primary { box-shadow: 0 0 12px rgba(255,43,214,.45); border-color: var(--line); background: #d61fb3; }
+  [data-theme=arcade] .guess input { font-size: 15px; border: 1px solid #1fa8b8; }
+  [data-theme=arcade] .suggestions div { font-size: 14px; }
+  [data-theme=arcade] .known { border-color: var(--line); }
+  [data-theme=arcade] .result { border: 1px solid var(--line); box-shadow: none; }
+  [data-theme=arcade] .cover { border: 1px solid #1fa8b8; box-shadow: none; }
+  [data-theme=arcade] .bar { border: 1px solid var(--line); }
+  [data-theme=arcade] .bar .progress { box-shadow: none; }
+  [data-theme=arcade] .filters { border-color: var(--line); }
+  [data-theme=arcade] .filters input[type=number] { border: 1px solid var(--line); }
+  [data-theme=arcade] .hint .letter b { text-shadow: none; }
+
+  /* PC: guesses live in one list box instead of a stack of bevelled boxes. */
+  [data-theme=pc] .attempts {
+    gap: 0; background: #fff; border: 2px solid; border-color: #808080 #fff #fff #808080; box-shadow: inset 1px 1px 0 #000;
+  }
+  [data-theme=pc] .attempt, [data-theme=pc] .attempt.empty {
+    border: 0; box-shadow: none; background: transparent; border-bottom: 1px solid #e4e4e4; min-height: 36px;
+  }
+  [data-theme=pc] .attempt:last-child { border-bottom: 0; }
+  [data-theme=pc] .clue { border: 0; background: #ececec; }
+  [data-theme=pc] .clue.hit { background: #2e8b2e; }
+  [data-theme=pc] .clue.near { background: #ffe873; }
+  [data-theme=pc] .known { background: transparent; box-shadow: none; border: 1px solid #808080; outline: 1px solid #fff; outline-offset: -2px; }
+  [data-theme=pc] .known .v.found { color: #000080; font-weight: bold; }
+  [data-theme=pc] .series-badge { background: #ffe873; }
+  [data-theme=pc] main { box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #dfdfdf, 4px 4px 0 rgba(0,0,0,.25); }
 </style>
 </head>
 <body>
