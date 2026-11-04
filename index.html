@@ -3,6 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<script>
+  // Apply the saved style before first paint. ?theme=nes etc. also works.
+  (function () {
+    var t = new URLSearchParams(location.search).get('theme');
+    try { t = t || localStorage.getItem('rgh-theme'); } catch (e) {}
+    if (t) document.documentElement.dataset.theme = t;
+  })();
+</script>
 <title>Retro Game Heardle</title>
 <style>
   :root {
@@ -130,6 +141,157 @@
   .result .cover img { filter: none; }
   /* The YouTube player has to exist to play audio, but nobody needs to see it. */
   #player-wrap { position: fixed; left: -9999px; top: 0; width: 200px; height: 200px; }
+
+  /* ---------- Theme picker ---------- */
+  .themes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin: -8px 0 16px; }
+  .themes button { padding: 4px 9px; font-size: 12px; }
+  .themes button.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+  /* ---------- Theme: Arcade (neon CRT) ---------- */
+  [data-theme=arcade] {
+    --bg: #07021a; --panel: #110833; --line: #ff2bd6; --text: #eafcff;
+    --muted: #9d8fe0; --accent: #00f0ff; --warn: #ff3b6b; --skip: #ffe14d;
+    --hit: #39ff88; --near: #ffd23f; --miss: #1d1250;
+  }
+  [data-theme=arcade] body {
+    font: 21px/1.15 "VT323", monospace;
+    background: radial-gradient(ellipse at 50% 0%, #2a0b5e 0%, var(--bg) 60%) fixed;
+    min-height: 100vh;
+  }
+  [data-theme=arcade] body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
+    box-shadow: inset 0 0 120px rgba(0,0,0,.8);
+  }
+  [data-theme=arcade] h1 {
+    font: 17px/1.4 "Press Start 2P", monospace; color: #ff5ce1;
+    text-shadow: 0 0 6px #ff2bd6, 0 0 18px #ff2bd6, 3px 3px 0 #2b0a6b;
+    animation: flicker 4s infinite; margin-top: 6px;
+  }
+  @keyframes flicker { 0%, 92%, 100% { opacity: 1 } 93% { opacity: .6 } 95% { opacity: 1 } 96% { opacity: .75 } }
+  [data-theme=arcade] .sub { color: var(--accent); text-shadow: 0 0 6px var(--accent); font-size: 19px; }
+  [data-theme=arcade] .stats, [data-theme=arcade] .times, [data-theme=arcade] .note { font-size: 18px; }
+  [data-theme=arcade] .stats b { color: var(--near); text-shadow: 0 0 6px var(--near); }
+  [data-theme=arcade] button, [data-theme=arcade] .attempt, [data-theme=arcade] .clue, [data-theme=arcade] .guess input,
+  [data-theme=arcade] .result, [data-theme=arcade] .filters, [data-theme=arcade] .known, [data-theme=arcade] .cover,
+  [data-theme=arcade] .suggestions, [data-theme=arcade] .bar { border-radius: 0; }
+  [data-theme=arcade] button {
+    font: 10px/1.4 "Press Start 2P", monospace; padding: 13px 8px; border: 2px solid var(--accent);
+    background: transparent; color: var(--accent); box-shadow: 0 0 8px rgba(0,240,255,.45), inset 0 0 8px rgba(0,240,255,.25);
+    text-transform: uppercase;
+  }
+  [data-theme=arcade] button.primary { background: var(--line); border-color: #ff8bec; color: #fff; box-shadow: 0 0 14px #ff2bd6; }
+  [data-theme=arcade] .link, [data-theme=arcade] .times .silent { border: 0; box-shadow: none; padding: 4px 0; font-size: 9px; color: var(--muted); background: none; }
+  [data-theme=arcade] .attempt { border: 2px solid #3b2a85; font-size: 20px; }
+  [data-theme=arcade] .attempt.wrong { border-color: var(--warn); box-shadow: 0 0 6px rgba(255,59,107,.4); }
+  [data-theme=arcade] .clue { font-size: 17px; }
+  [data-theme=arcade] .clue .k { font-size: 12px; }
+  [data-theme=arcade] .clue.hit { box-shadow: 0 0 8px var(--hit); }
+  [data-theme=arcade] .bar { height: 14px; border: 2px solid var(--line); background: #000; }
+  [data-theme=arcade] .bar .unlocked { background: #2b1866; }
+  [data-theme=arcade] .bar .progress { background: linear-gradient(90deg, #00f0ff, #ff2bd6); box-shadow: 0 0 10px #00f0ff; }
+  [data-theme=arcade] .guess input { border: 2px solid var(--accent); background: #000; font-size: 22px; }
+  [data-theme=arcade] .suggestions div { font-size: 20px; }
+  [data-theme=arcade] .suggestions div.active, [data-theme=arcade] .suggestions div:hover { background: #2b1866; }
+  [data-theme=arcade] .result { border: 2px solid var(--line); box-shadow: 0 0 18px rgba(255,43,214,.4); }
+  [data-theme=arcade] .result h2 { font: 14px/1.5 "Press Start 2P", monospace; }
+  [data-theme=arcade] .result.win h2 { text-shadow: 0 0 10px var(--accent); }
+  [data-theme=arcade] .themes button { font-size: 8px; padding: 7px 8px; }
+
+  /* ---------- Theme: 8-bit (NES dialog boxes) ---------- */
+  [data-theme=nes] {
+    --bg: #000; --panel: #000; --line: #fcfcfc; --text: #fcfcfc;
+    --muted: #bcbcbc; --accent: #f83800; --warn: #f83800; --skip: #f8b800;
+    --hit: #00a800; --near: #f8b800; --miss: #3c3c3c;
+  }
+  [data-theme=nes] body { font: 11px/1.8 "Press Start 2P", monospace; image-rendering: pixelated; }
+  [data-theme=nes] h1 { font-size: 15px; line-height: 1.5; color: #f8b800; text-shadow: 3px 3px 0 #a81000; }
+  [data-theme=nes] .sub, [data-theme=nes] .stats, [data-theme=nes] .times, [data-theme=nes] .note { font-size: 9px; }
+  [data-theme=nes] .stats { flex-wrap: wrap; gap: 8px 14px; }
+  [data-theme=nes] .attempt, [data-theme=nes] .result, [data-theme=nes] .filters, [data-theme=nes] .known,
+  [data-theme=nes] .guess input, [data-theme=nes] .suggestions {
+    border: 4px double var(--line); border-radius: 6px; font-size: 10px;
+  }
+  [data-theme=nes] .attempt.wrong { border-color: #fcfcfc; }
+  [data-theme=nes] .attempt.wrong .name::before { content: "✗ "; color: var(--warn); }
+  [data-theme=nes] .attempt.right .name::before { content: "▶ "; }
+  [data-theme=nes] .clue { border-radius: 0; font-size: 8px; padding: 4px; }
+  [data-theme=nes] .clue .k { font-size: 6px; letter-spacing: 0; }
+  [data-theme=nes] .clue.near { color: #000; }
+  [data-theme=nes] button {
+    font: 9px/1.5 "Press Start 2P", monospace; border-radius: 0; padding: 12px 6px;
+    background: #fcfcfc; color: #000; border: 3px solid #000; outline: 3px solid #fcfcfc;
+    box-shadow: inset -3px -3px 0 #7c7c7c; margin: 3px;
+  }
+  [data-theme=nes] button:active { box-shadow: inset 3px 3px 0 #7c7c7c; }
+  [data-theme=nes] button.primary { background: #f83800; color: #fcfcfc; box-shadow: inset -3px -3px 0 #a81000; }
+  [data-theme=nes] .link, [data-theme=nes] .times .silent { outline: 0; border: 0; box-shadow: none; background: none; color: var(--muted); font-size: 8px; padding: 4px 0; margin: 0; }
+  [data-theme=nes] .bar { height: 16px; border-radius: 0; border: 3px solid #fcfcfc; background: #000; }
+  [data-theme=nes] .bar .unlocked { background: #0000bc; }
+  [data-theme=nes] .bar .progress { background: repeating-linear-gradient(90deg, #f83800 0 8px, #000 8px 10px); }
+  [data-theme=nes] .bar .tick { background: #fcfcfc; width: 2px; }
+  [data-theme=nes] .guess input { font-size: 10px; background: #000; }
+  [data-theme=nes] .guess input:focus { outline: 0; border-color: #f8b800; }
+  [data-theme=nes] .suggestions div { font-size: 9px; }
+  [data-theme=nes] .suggestions div.active, [data-theme=nes] .suggestions div:hover { background: #0000bc; }
+  [data-theme=nes] .suggestions div.active::before { content: "▶ "; }
+  [data-theme=nes] .result h2 { font-size: 12px; line-height: 1.6; }
+  [data-theme=nes] .result .meta { font-size: 9px; }
+  [data-theme=nes] .cover { border-radius: 0; border: 3px solid #fcfcfc; }
+  [data-theme=nes] .cover img { image-rendering: pixelated; }
+  [data-theme=nes] .hint .letter { font-size: 9px; }
+  [data-theme=nes] .series-badge { border-radius: 0; font-size: 7px; }
+  [data-theme=nes] .themes button { font-size: 7px; padding: 6px; }
+
+  /* ---------- Theme: PC (late-90s desktop window) ---------- */
+  [data-theme=pc] {
+    --bg: #c0c0c0; --panel: #c0c0c0; --line: #808080; --text: #000;
+    --muted: #404040; --accent: #000080; --warn: #a00000; --skip: #806000;
+    --hit: #008000; --near: #ffff00; --miss: #fff;
+  }
+  [data-theme=pc] body { background: #008080; font: 14px/1.35 Tahoma, Verdana, "Segoe UI", sans-serif; }
+  [data-theme=pc] main {
+    margin: 16px; padding: 0 10px 14px; background: #c0c0c0; align-self: flex-start;
+    border: 2px solid; border-color: #fff #000 #000 #fff; box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #dfdfdf;
+  }
+  [data-theme=pc] .top { margin: 3px -7px 6px; padding: 3px 4px 3px 6px; background: linear-gradient(90deg, #000080, #1084d0); color: #fff; align-items: center; }
+  [data-theme=pc] h1 { font-size: 14px; font-weight: bold; margin: 0; }
+  [data-theme=pc] h1::before { content: "♫ "; }
+  [data-theme=pc] .sub { color: #dfe8ff; font-size: 11px; margin: 0; }
+  [data-theme=pc] .link { color: #000; background: #c0c0c0; text-decoration: none; padding: 2px 8px; font-size: 12px; }
+  [data-theme=pc] .times .silent { border: 0; box-shadow: none; background: none; color: #000080; padding: 0; text-decoration: underline; }
+  [data-theme=pc] button {
+    border-radius: 0; background: #c0c0c0; color: #000; padding: 8px 10px; font-size: 13px;
+    border: 2px solid; border-color: #fff #000 #000 #fff; box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #dfdfdf;
+  }
+  [data-theme=pc] button:active:not(:disabled) { border-color: #000 #fff #fff #000; box-shadow: inset 1px 1px 0 #808080; }
+  [data-theme=pc] button.primary { font-weight: bold; outline: 1px dotted #000; outline-offset: -5px; color: #000; background: #c0c0c0; }
+  [data-theme=pc] button:disabled { color: #808080; text-shadow: 1px 1px 0 #fff; opacity: 1; }
+  [data-theme=pc] .attempt, [data-theme=pc] .guess input, [data-theme=pc] .known, [data-theme=pc] .cover, [data-theme=pc] .bar {
+    border-radius: 0; background: #fff; border: 2px solid; border-color: #808080 #fff #fff #808080; box-shadow: inset 1px 1px 0 #000;
+  }
+  [data-theme=pc] .attempt.wrong .name { color: #000; }
+  [data-theme=pc] .clue { border-radius: 0; border: 1px solid #808080; }
+  [data-theme=pc] .clue.hit { color: #fff; }
+  [data-theme=pc] .clue.near { color: #000; }
+  [data-theme=pc] .bar { height: 20px; }
+  [data-theme=pc] .bar .unlocked { background: #e6e6e6; }
+  [data-theme=pc] .bar .progress { background: repeating-linear-gradient(90deg, #000080 0 9px, transparent 9px 11px); }
+  [data-theme=pc] .bar .tick { background: #c0c0c0; }
+  [data-theme=pc] .guess input:focus { outline: 1px dotted #000; }
+  [data-theme=pc] .suggestions { border-radius: 0; background: #fff; border: 1px solid #000; }
+  [data-theme=pc] .suggestions div.active, [data-theme=pc] .suggestions div:hover { background: #000080; color: #fff; }
+  [data-theme=pc] .suggestions div.active small, [data-theme=pc] .suggestions div:hover small { color: #dfe8ff; }
+  [data-theme=pc] .result, [data-theme=pc] .filters {
+    border-radius: 0; background: #c0c0c0; border: 2px solid; border-color: #fff #000 #000 #fff; box-shadow: inset -1px -1px 0 #808080;
+  }
+  [data-theme=pc] .result h2 { font-size: 15px; }
+  [data-theme=pc] .result.win h2 { color: #000080; }
+  [data-theme=pc] .filters input[type=number] { border-radius: 0; background: #fff; border: 2px inset #fff; }
+  [data-theme=pc] .themes button { padding: 3px 8px; font-size: 12px; }
+  [data-theme=pc] .themes { margin-top: 0; }
+  [data-theme=pc] .clue .k { letter-spacing: 0; }
+  [data-theme=pc] .themes button.on { background: #c0c0c0; color: #000; border-color: #000 #fff #fff #000; box-shadow: inset 1px 1px 0 #808080; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -140,6 +302,12 @@
       <div class="sub">Guess the game from its music.</div>
     </div>
     <button class="link" id="filters-toggle">Filters</button>
+  </div>
+  <div class="themes" id="themes">Style:
+    <button data-t="classic">Classic</button>
+    <button data-t="arcade">Arcade</button>
+    <button data-t="nes">8-bit</button>
+    <button data-t="pc">PC</button>
   </div>
   <div class="filters" id="filters" hidden>
     <div class="plats" id="f-plats"></div>
@@ -668,6 +836,18 @@ function onYouTubeIframeAPIReady() {
   });
 }
 
+function setupThemes() {
+  const mark = () => document.querySelectorAll('#themes button').forEach(b =>
+    b.classList.toggle('on', b.dataset.t === (document.documentElement.dataset.theme || 'classic')));
+  document.querySelectorAll('#themes button').forEach(b => b.onclick = () => {
+    if (b.dataset.t === 'classic') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = b.dataset.t;
+    try { localStorage.setItem('rgh-theme', b.dataset.t); } catch (e) {}
+    mark();
+  });
+  mark();
+}
+setupThemes();
 renderStats();
 setupFilters();
 newRound();
