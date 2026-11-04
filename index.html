@@ -812,7 +812,7 @@ function renderHint() {
   const box = $('hint');
   box.hidden = hints === 0 || over;
   if (box.hidden) return;
-  showCover($('hint-cover'), song.game, hints === 1 ? 14 : 6);
+  showCover($('hint-cover'), song.game, hints === 1 ? 5 : 2);
   const letter = $('hint-letter');
   if (hints >= 3) {
     letter.innerHTML = 'Starts with <b></b> (ignoring “The”)';
