@@ -42,6 +42,7 @@
   .player .now { min-width: 0; flex: 1; }
   .player .now b { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .player .pos { font-variant-numeric: tabular-nums; }
+  td .row { gap: 5px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
@@ -322,6 +323,8 @@ function renderSchedule() {
       <td><div class="row" style="justify-content:flex-end">
         <button class="small" data-a="play">▶</button>
         <button class="small" data-a="preview">Preview</button>
+        <button class="small" data-a="skip" title="Use the next song in line">Skip</button>
+        <button class="small" data-a="random" title="Use a random song">Random</button>
         <button class="small" data-a="change">Change</button>
         ${r.pinned ? '<button class="small" data-a="unpin">Unpin</button>' : '<button class="small" data-a="pin">Pin</button>'}
       </div></td>`;
@@ -337,6 +340,8 @@ function renderSchedule() {
       window.open(`./?date=${r.key}&preview=1`, '_blank');
     };
     tr.querySelector('[data-a=change]').onclick = () => openPicker(r.key);
+    tr.querySelector('[data-a=skip]').onclick = () => replaceSong(r.key, 'next');
+    tr.querySelector('[data-a=random]').onclick = () => replaceSong(r.key, 'random');
     const pin = tr.querySelector('[data-a=pin]'), unpin = tr.querySelector('[data-a=unpin]');
     if (pin) pin.onclick = () => { schedule[r.key] = r.song.videoId; markDirty('schedule'); renderSchedule(); };
     if (unpin) unpin.onclick = () => { delete schedule[r.key]; markDirty('schedule'); renderSchedule(); };
@@ -352,6 +357,39 @@ $('pin-all').onclick = () => {
   }
   markDirty('schedule'); renderSchedule();
 };
+
+// Games used within 30 days either side of a date (other than on that date itself).
+function gamesNear(key) {
+  const used = new Set();
+  for (let i = -30; i <= 30; i++) {
+    if (!i) continue;
+    const k = DAILY.addDays(key, i);
+    if (DAILY.number(k) >= 1) used.add(DAILY.pick(k, songs, schedule).song.game);
+  }
+  return used;
+}
+// Swap a day's song for the next one in the automatic order, or a random one,
+// skipping games that already appear within 30 days.
+function replaceSong(key, how) {
+  const cur = DAILY.pick(key, songs, schedule).song;
+  const near = gamesNear(key);
+  let choice;
+  if (how === 'next') {
+    const order = DAILY.autoOrder(songs);
+    const i = order.findIndex(s => s.game === cur.game);
+    for (let step = 1; step < order.length && !choice; step++) {
+      const s = order[(i + step) % order.length];
+      if (!near.has(s.game)) choice = s;
+    }
+  } else {
+    const pool = songs.filter(s => s.game !== cur.game && !near.has(s.game));
+    const from = pool.length ? pool : songs.filter(s => s.game !== cur.game);
+    choice = from[Math.floor(Math.random() * from.length)];
+  }
+  if (!choice) return;
+  schedule[key] = choice.videoId;
+  markDirty('schedule'); renderSchedule();
+}
 
 // Song picker for a date
 let pickerKey = null;

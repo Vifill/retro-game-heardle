@@ -65,5 +65,5 @@ window.DAILY = (() => {
     } catch { return {}; }
   }
 
-  return { LAUNCH, today, addDays, number, isKey, pick, autoPick, loadSchedule };
+  return { LAUNCH, today, addDays, number, isKey, pick, autoPick, autoOrder, loadSchedule };
 })();
