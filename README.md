@@ -1,6 +1,6 @@
 # Retro Game Heardle
 
-Guess the game from a short clip of its music. Clips grow 1s → 2s → 4s → 7s → 11s → 16s.
+Guess the game from a short clip of its music. Clips grow 2s → 4s → 7s → 11s → 16s → 22s.
 
 ## Files
 - `index.html` – the whole game (no build step, no server code)
