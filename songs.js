@@ -91,7 +91,7 @@ window.SONGS = [
   {"game": "Final Fantasy VIII", "platform": "PS1", "year": 1999, "track": "Liberi Fatali", "videoId": "0ihKQl9R6a4", "start": 0},
   {"game": "Gran Turismo 2", "platform": "PS1", "year": 1999, "track": "My Favourite Game (The Cardigans)", "videoId": "thPMZ82NYQA", "start": 0},
   {"game": "Medal of Honor", "platform": "PS1", "year": 1999, "track": "Main Theme", "videoId": "zMjPzdXDpW4", "start": 0},
-  {"game": "Silent Hill", "platform": "PS1", "year": 1999, "track": "Silent Hill (Theme)", "videoId": "5iN7JeJHT08", "start": 0},
+  {"game": "Silent Hill", "platform": "PS1", "year": 1999, "track": "Silent Hill (Theme)", "videoId": "mdqNshgDwtQ", "start": 0},
   {"game": "Spyro 2: Ripto's Rage!", "platform": "PS1", "year": 1999, "track": "Glimmer", "videoId": "AtKutcNtdNo", "start": 0},
   {"game": "Syphon Filter", "platform": "PS1", "year": 1999, "track": "Main Theme", "videoId": "dYXHgi0q3zk", "start": 0},
   {"game": "The Legend of Dragoon", "platform": "PS1", "year": 1999, "track": "Battle Theme", "videoId": "9Aqs67NB6iM", "start": 0},
