@@ -128,5 +128,5 @@ window.SONGS = [
   {"game": "Grand Theft Auto: Vice City", "platform": "PS2/PC", "year": 2002, "track": "Main Theme", "videoId": "m7orf2RjNX8", "start": 0},
   {"game": "Prince of Persia: The Sands of Time", "platform": "PS2/PC", "year": 2003, "track": "Main Theme", "videoId": "82nZITH6uC0", "start": 0},
   {"game": "Grand Theft Auto: San Andreas", "platform": "PS2/PC", "year": 2004, "track": "Main Theme", "videoId": "7qfbi3HACV8", "start": 0},
-  {"game": "Need for Speed: Underground 2", "platform": "PS2/PC", "year": 2004, "track": "Riders on the Storm (Snoop Dogg)", "videoId": "hXYTXNwFUXs", "start": 0}
+  {"game": "Need for Speed: Underground 2", "platform": "PS2/PC", "year": 2004, "track": "Riders on the Storm (Snoop Dogg)", "videoId": "hXYTXNwFUXs", "start": 8}
 ];
