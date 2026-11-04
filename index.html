@@ -8,6 +8,7 @@
   :root {
     --bg: #14121f; --panel: #1f1c30; --line: #36314f; --text: #ece9f7;
     --muted: #9a94b8; --accent: #7cf2a4; --warn: #ff7a8a; --skip: #f5c96a;
+    --hit: #5fd38d; --near: #e8c25a; --miss: #2c2842;
   }
   * { box-sizing: border-box; }
   body {
@@ -23,11 +24,32 @@
 
   .attempts { display: grid; gap: 6px; margin-bottom: 16px; }
   .attempt {
-    height: 38px; border: 1px solid var(--line); border-radius: 8px;
-    padding: 0 12px; display: flex; align-items: center; font-size: 14px;
-    color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    min-height: 38px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; display: flex; flex-direction: column; justify-content: center; gap: 6px;
+    font-size: 14px; color: var(--muted); min-width: 0;
   }
+  .attempt .name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .attempt.wrong { color: var(--warn); border-color: #5a2c3a; }
+  .attempt.wrong .name { color: var(--text); }
+
+  /* Per-guess clue chips: green = match, yellow = close, grey = no. */
+  .clues { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .clue {
+    border-radius: 6px; padding: 4px 5px; background: var(--miss); color: var(--text);
+    font-size: 12px; line-height: 1.2; min-width: 0;
+  }
+  .clue .k { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .6px; opacity: .7; }
+  .clue .v { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .clue.hit { background: var(--hit); color: #0f2418; }
+  .clue.near { background: var(--near); color: #2a1f05; }
+
+  .known {
+    display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13px;
+    border: 1px dashed var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
+  }
+  .known[hidden] { display: none; }
+  .known .k { color: var(--muted); }
+  .known .v.found { color: var(--accent); }
   .attempt.skipped { color: var(--skip); border-color: #5a4a2c; }
   .attempt.right { color: var(--accent); border-color: #2c5a3e; }
 
@@ -58,6 +80,7 @@
     max-height: 240px; overflow-y: auto; display: none; z-index: 5;
   }
   .suggestions div { padding: 9px 12px; cursor: pointer; font-size: 14px; }
+  .suggestions small { color: var(--muted); }
   .suggestions div.active, .suggestions div:hover { background: #2c2845; }
 
   .result {
@@ -87,6 +110,7 @@
     <span>Best <b id="s-best">0</b></span>
   </div>
 
+  <div class="known" id="known" hidden></div>
   <div class="attempts" id="attempts"></div>
 
   <div class="bar" id="bar"><div class="unlocked" id="unlocked"></div><div class="progress" id="progress"></div></div>
@@ -118,6 +142,7 @@
 </main>
 
 <script src="songs.js"></script>
+<script src="games.js"></script>
 <script>
 const STAGES = [2, 4, 7, 11, 16, 22];
 const MAX = STAGES[STAGES.length - 1];
@@ -160,6 +185,32 @@ function renderBar() {
   $('unlocked').style.width = (STAGES[stage] / MAX * 100) + '%';
 }
 
+// Everything we know about a game, merged from songs.js and games.js.
+const INFO = {};
+for (const s of SONGS) {
+  if (!INFO[s.game]) INFO[s.game] = { platforms: s.platform.split('/'), year: s.year, ...GAMES[s.game] };
+}
+
+const overlap = (a, b) => a.filter(x => b.includes(x));
+const sameSet = (a, b) => a.length === b.length && overlap(a, b).length === a.length;
+
+// Compare a guessed game with the answer, one clue per column.
+function compare(guessName, answerName) {
+  const g = INFO[guessName], a = INFO[answerName];
+  const clue = (k, v, state) => ({ k, v, state });
+  const plat = sameSet(g.platforms, a.platforms) ? 'hit' : overlap(g.platforms, a.platforms).length ? 'near' : '';
+  const dy = a.year - g.year;
+  const arrow = dy > 0 ? ' ↑' : dy < 0 ? ' ↓' : '';
+  const genre = sameSet(g.genre, a.genre) ? 'hit' : overlap(g.genre, a.genre).length ? 'near' : '';
+  return [
+    clue('Platform', g.platforms.join('/'), plat),
+    clue('Year', g.year + arrow, dy === 0 ? 'hit' : Math.abs(dy) <= 2 ? 'near' : ''),
+    clue('Genre', g.genre[g.genre.length - 1], genre),
+    clue('Studio', g.developer, g.developer === a.developer ? 'hit' : ''),
+    clue('Series', g.series || 'None', g.series && g.series === a.series ? 'hit' : ''),
+  ];
+}
+
 function renderAttempts() {
   const box = $('attempts');
   box.innerHTML = '';
@@ -167,9 +218,69 @@ function renderAttempts() {
     const a = attempts[i];
     const div = document.createElement('div');
     div.className = 'attempt' + (a ? ' ' + a.kind : '');
-    div.textContent = a ? (a.kind === 'skipped' ? 'Skipped' : a.text) : '';
+    if (a) {
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = a.kind === 'skipped' ? 'Skipped' : a.text;
+      div.appendChild(name);
+    }
+    if (a && a.kind === 'wrong') {
+      const row = document.createElement('div');
+      row.className = 'clues';
+      for (const c of compare(a.text, song.game)) {
+        const chip = document.createElement('div');
+        chip.className = 'clue ' + c.state;
+        chip.title = `${c.k}: ${c.v}`;
+        chip.innerHTML = '<span class="k"></span><span class="v"></span>';
+        chip.children[0].textContent = c.k;
+        chip.children[1].textContent = c.v;
+        row.appendChild(chip);
+      }
+      div.appendChild(row);
+    }
     box.appendChild(div);
   }
+  renderKnown();
+}
+
+// Sum up what the wrong guesses have revealed so far.
+function renderKnown() {
+  const box = $('known');
+  const wrong = attempts.filter(a => a.kind === 'wrong').map(a => INFO[a.text]);
+  if (!wrong.length || over) { box.hidden = true; return; }
+  const ans = INFO[song.game];
+  const years = Object.values(INFO).map(i => i.year);
+  let lo = Math.min(...years), hi = Math.max(...years);
+  for (const g of wrong) {
+    if (g.year === ans.year) { lo = hi = ans.year; break; }
+    if (ans.year > g.year) lo = Math.max(lo, g.year + 1);
+    else hi = Math.min(hi, g.year - 1);
+  }
+  const plat = wrong.some(g => sameSet(g.platforms, ans.platforms)) ? { v: ans.platforms.join('/'), found: true }
+    : (() => {
+        const seen = [...new Set(wrong.flatMap(g => overlap(g.platforms, ans.platforms)))];
+        return seen.length ? { v: 'includes ' + seen.join(', ') } : { v: 'not ' + [...new Set(wrong.flatMap(g => g.platforms))].join(', ') };
+      })();
+  const genreHit = wrong.find(g => sameSet(g.genre, ans.genre));
+  const genreSeen = [...new Set(wrong.flatMap(g => overlap(g.genre, ans.genre)))];
+  const genre = genreHit ? { v: ans.genre.join(', '), found: true }
+    : genreSeen.length ? { v: genreSeen.join(', ') + ' …' } : { v: '?' };
+  const dev = wrong.some(g => g.developer === ans.developer) ? { v: ans.developer, found: true } : { v: '?' };
+  const ser = ans.series && wrong.some(g => g.series === ans.series) ? { v: ans.series, found: true } : { v: '?' };
+  const rows = [
+    ['Platform', plat],
+    ['Year', lo === hi ? { v: String(lo), found: true } : { v: `${lo}–${hi}` }],
+    ['Genre', genre],
+    ['Studio', dev],
+    ['Series', ser],
+  ];
+  box.innerHTML = '';
+  for (const [k, val] of rows) {
+    const kd = document.createElement('div'); kd.className = 'k'; kd.textContent = k;
+    const vd = document.createElement('div'); vd.className = 'v' + (val.found ? ' found' : ''); vd.textContent = val.v;
+    box.append(kd, vd);
+  }
+  box.hidden = false;
 }
 
 function fmt(sec) {
@@ -275,7 +386,7 @@ function finish(won) {
   stats.played++;
   if (won) { stats.won++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
   else stats.streak = 0;
-  save('rgh-stats', stats); renderStats();
+  save('rgh-stats', stats); renderStats(); renderKnown();
   stage = STAGES.length - 1; renderBar(); setControls();
   const r = $('result');
   r.className = 'result ' + (won ? 'win' : 'lose');
@@ -302,6 +413,10 @@ function showSuggestions() {
   hits.forEach((g, i) => {
     const d = document.createElement('div');
     d.textContent = g;
+    d.dataset.game = g;
+    const m = document.createElement('small');
+    m.textContent = `  ${INFO[g].platforms.join('/')} · ${INFO[g].year}`;
+    d.appendChild(m);
     d.onmousedown = e => { e.preventDefault(); guess(g); };
     box.appendChild(d);
   });
@@ -324,14 +439,14 @@ $('input').addEventListener('keydown', e => {
   else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
   else if (e.key === 'Enter') {
     const items = [...$('suggestions').children];
-    if (active >= 0 && items[active]) guess(items[active].textContent);
-    else if (items.length === 1) guess(items[0].textContent);
+    if (active >= 0 && items[active]) guess(items[active].dataset.game);
+    else if (items.length === 1) guess(items[0].dataset.game);
     else guess($('input').value);
   } else if (e.key === 'Escape') hideSuggestions();
 });
 $('submit').onclick = () => {
   const items = [...$('suggestions').children];
-  guess(items.length === 1 && $('suggestions').style.display !== 'none' ? items[0].textContent : $('input').value);
+  guess(items.length === 1 && $('suggestions').style.display !== 'none' ? items[0].dataset.game : $('input').value);
 };
 $('play').onclick = play;
 $('skip').onclick = () => advance({ kind: 'skipped' });
