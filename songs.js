@@ -7,7 +7,7 @@ window.SONGS = [
   {"game": "The Legend of Zelda", "platform": "NES", "year": 1986, "track": "Overworld Theme", "videoId": "ncg72VswyTs", "start": 0},
   {"game": "Final Fantasy", "platform": "NES", "year": 1987, "track": "Main Theme", "videoId": "lViSeukzQOQ", "start": 0},
   {"game": "Mike Tyson's Punch-Out!!", "platform": "NES", "year": 1987, "track": "Fight Theme", "videoId": "VE8vKLEK6A8", "start": 0},
-  {"game": "Zelda II: The Adventure of Link", "platform": "NES", "year": 1987, "track": "Palace Theme", "videoId": "7a7Sh82Mzdc", "start": 0},
+  {"game": "Zelda II: The Adventure of Link", "platform": "NES", "year": 1987, "track": "Palace Theme", "videoId": "q1UrT4piW-U", "start": 0},
   {"game": "Contra", "platform": "NES", "year": 1988, "track": "Jungle (Stage 1)", "videoId": "LpRnFfxlmzg", "start": 0},
   {"game": "Mega Man 2", "platform": "NES", "year": 1988, "track": "Dr. Wily Stage 1", "videoId": "MR-PQRKvDhk", "start": 0},
   {"game": "Ninja Gaiden", "platform": "NES", "year": 1988, "track": "Act 1", "videoId": "CRpcMlFYjZg", "start": 0},
