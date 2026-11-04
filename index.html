@@ -292,6 +292,42 @@
   [data-theme=pc] .themes { margin-top: 0; }
   [data-theme=pc] .clue .k { letter-spacing: 0; }
   [data-theme=pc] .themes button.on { background: #c0c0c0; color: #000; border-color: #000 #fff #fff #000; box-shadow: inset 1px 1px 0 #808080; font-weight: bold; }
+
+  /* ---------- Shared polish ---------- */
+  html { background: var(--bg); }
+  html[data-theme=pc] { background: #008080; }
+  button, input { -webkit-tap-highlight-color: transparent; }
+  .attempt.empty { border-style: dashed; opacity: .55; min-height: 34px; }
+  @keyframes blink { 50% { opacity: 0 } }
+
+  [data-theme=arcade] { accent-color: #00f0ff; }
+  [data-theme=arcade] body { background: radial-gradient(ellipse 120% 60% at 50% 0%, #2a0b5e 0%, var(--bg) 70%) no-repeat, var(--bg); }
+  [data-theme=arcade] h1 { font-size: 15px; }
+  [data-theme=arcade] .sub::after { content: "_"; animation: blink 1s steps(1) infinite; }
+  [data-theme=arcade] .link, [data-theme=arcade] .times .silent { font-size: 10px; }
+  [data-theme=arcade] .themes button { font-size: 9px; }
+  [data-theme=arcade] .attempt.empty { border: 2px dashed #3b2a85; opacity: .7; }
+  [data-theme=arcade] .attempt.right { border-color: var(--accent); box-shadow: 0 0 10px rgba(0,240,255,.5); }
+  [data-theme=arcade] .filters input[type=number] { border-radius: 0; border: 2px solid var(--line); background: #000; font: inherit; }
+  [data-theme=arcade] .hint .letter b { color: var(--near); text-shadow: 0 0 8px var(--near); font-size: 26px; }
+  [data-theme=arcade] .cover { border: 2px solid var(--accent); box-shadow: 0 0 10px rgba(0,240,255,.4); }
+
+  [data-theme=nes] { accent-color: #f83800; }
+  [data-theme=nes] .clue { font-size: 9px; }
+  [data-theme=nes] .clue .k { font-size: 7px; }
+  [data-theme=nes] .attempt.empty { border: 3px solid #3c3c3c; opacity: 1; }
+  [data-theme=nes] button.primary:not(:disabled)::before { content: "▶ "; animation: blink 1s steps(1) infinite; }
+  [data-theme=nes] .filters, [data-theme=nes] .filters label { font-size: 10px; }
+  [data-theme=nes] .filters input[type=number] { border-radius: 0; border: 3px solid #fcfcfc; background: #000; font: inherit; }
+  [data-theme=nes] .known .v.found { color: #f8b800; }
+
+  [data-theme=pc] { accent-color: #000080; }
+  [data-theme=pc] .stats { gap: 3px; }
+  [data-theme=pc] .stats span { flex: 1; padding: 2px 6px; font-size: 12px; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+  [data-theme=pc] .attempt.empty { background: #dcdcdc; border-style: solid; opacity: 1; }
+  [data-theme=pc] .attempt.right .name { font-weight: bold; }
+  [data-theme=pc] .result h2::before { content: "✔ "; }
+  [data-theme=pc] .result.lose h2::before { content: "✖ "; }
 </style>
 </head>
 <body>
@@ -445,7 +481,7 @@ function renderAttempts() {
   for (let i = 0; i < STAGES.length; i++) {
     const a = attempts[i];
     const div = document.createElement('div');
-    div.className = 'attempt' + (a ? ' ' + a.kind : '');
+    div.className = 'attempt' + (a ? ' ' + a.kind : ' empty');
     if (a) {
       const name = document.createElement('div');
       name.className = 'name';
@@ -532,7 +568,7 @@ function setControls() {
   $('input').disabled = !canPlay || over;
   $('submit').disabled = !canPlay || over;
   $('hint-btn').disabled = !song || over || hints >= HINT_STEPS;
-  $('hint-btn').textContent = hints >= HINT_STEPS ? 'No hints left' : `Hint (${HINT_STEPS - hints} left)`;
+  $('hint-btn').textContent = hints >= HINT_STEPS ? 'No hints left' : `Hint (${HINT_STEPS - hints})`;
 }
 
 const ALL_PLATFORMS = ['NES', 'PS1', 'PS2', 'PC'];
